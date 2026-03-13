@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   JERSEYS RAW — DUAL THEME SYSTEM
+   Light: Nike Architectural / Dark: Streetwear Neón
+   Variables in RGB format for Tailwind opacity support
+   ============================================ */
+
+/* TEMA CLARO (default) */
+:root {
+  --bg: 255 255 255;
+  /* #FFFFFF */
+  --bg-surface: 229 229 229;
+  /* #E5E5E5 */
+  --bg-card: 245 245 245;
+  /* #F5F5F5 */
+  --text-primary: 17 17 17;
+  /* #111111 */
+  --text-secondary: 107 107 107;
+  /* #6B6B6B */
+  --accent: 0 0 0;
+  /* #000000 */
+  --accent-hover: 51 51 51;
+  /* #333333 */
+  --accent-cta: 206 255 0;
+  /* #CEFF00 (Volt) */
+  --accent-cta-text: 0 0 0;
+  /* Negro sobre Volt */
+  --border: 229 229 229;
+  /* #E5E5E5 */
+  --navbar-bg: 255 255 255;
+  /* #FFFFFF */
+  --announcement-bg: 245 245 245;
+  /* #F5F5F5 */
+  --card-hover: 0 0 0;
+  /* hover a negro */
+  --sale: 217 83 79;
+  /* #D9534F */
+  --badge-bg: 229 229 229;
+  /* #E5E5E5 */
+}
+
+/* TEMA OSCURO */
+[data-theme="dark"] {
+  --bg: 13 13 13;
+  /* #0D0D0D */
+  --bg-surface: 28 29 33;
+  /* #1C1D21 */
+  --bg-card: 36 36 36;
+  /* #242424 */
+  --text-primary: 242 242 242;
+  /* #F2F2F2 */
+  --text-secondary: 160 160 160;
+  /* #A0A0A0 */
+  --accent: 0 255 133;
+  /* #00FF85 */
+  --accent-hover: 22 199 158;
+  /* #16C79E */
+  --accent-cta: 0 255 133;
+  /* #00FF85 */
+  --accent-cta-text: 0 0 0;
+  /* Negro sobre neón */
+  --border: 255 255 255;
+  /* white/10 se maneja con opacidad */
+  --navbar-bg: 13 13 13;
+  /* #0D0D0D */
+  --announcement-bg: 28 29 33;
+  /* #1C1D21 */
+  --card-hover: 0 255 133;
+  /* hover a neón */
+  --sale: 239 68 68;
+  /* #EF4444 */
+  --badge-bg: 255 255 255;
+  /* white/10 */
+}
+
+/* ============================================
+   GLOBAL BASE STYLES
+   ============================================ */
+html,
+body {
+  height: 100%;
+  background: rgb(var(--bg));
+  color: rgb(var(--text-primary));
+}
+
+/* Smooth theme transitions */
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Links */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Fix for scrollbar appearance */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--bg));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--text-secondary));
+  border-radius: 3px;
+}
+
+@keyframes marquee-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-100% - var(--gap))); }
+}
+
+.animate-marquee-horizontal {
+  animation: marquee-x var(--duration) infinite linear;
+}
+
+/* ✅ Esto apunta correctamente a los hijos que tienen la animación */
+.marquee-reverse .animate-marquee-horizontal {
+  animation-direction: reverse !important;
+}

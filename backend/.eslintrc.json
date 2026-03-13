@@ -1,0 +1,37 @@
+{
+  "env": {
+    "node": true,
+    "es2021": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:prisma/recommended"
+  ],
+  "plugins": [
+    "@typescript-eslint",
+    "prisma"
+  ],
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "module"
+  },
+  "ignorePatterns": ["dist/", "node_modules/"],
+  "overrides": [
+    {
+      "files": ["**/*.ts", "**/*.tsx"],
+      "rules": {
+        "prisma/prefer-raw-query-string": "error",
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "MemberExpression[object.name='prisma'][property.name='$queryRawUnsafe']",
+            "message": "Usa prisma.$queryRaw con template tag; $queryRawUnsafe está prohibido."
+          }
+        ],
+        "max-len": ["warn", { "code": 120 }],
+        "no-console": ["warn", { "allow": ["warn", "error"] }]
+      }
+    }
+  ]
+}

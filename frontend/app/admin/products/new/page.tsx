@@ -1,0 +1,572 @@
+"use client";
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Save, Upload, Loader2, Tag, Search, ChevronLeft, ChevronRight, Shield, Plus, Trash2, Check } from "lucide-react";
+import Link from "next/link";
+import ImageUploadWidget from "@/components/admin/ImageUploadWidget";
+import { api } from "@/lib/api";
+
+export default function NewProductPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [clubs, setClubs] = useState<any[]>([]);
+  const [tags, setTags] = useState<any[]>([]);
+  const [error, setError] = useState("");
+
+  // --- ESTADOS PARA FILTROS DE CLUBES ---
+  const [clubSearch, setClubSearch] = useState("");
+  const [clubPage, setClubPage] = useState(1);
+  const [selectedLeague, setSelectedLeague] = useState("");
+  const CLUBS_PER_PAGE = 6;
+
+  // --- ESTADOS PARA TAGS ---
+  const [tagSearch, setTagSearch] = useState("");
+  const [tagPage, setTagPage] = useState(1);
+  const TAGS_PER_PAGE = 8;
+
+  const [formData, setFormData] = useState({
+    name: "",
+    slug: "",
+    price: "",
+    compareAtPrice: "",
+    imageUrl: "",
+    images: [] as string[],
+    description: "",
+    brand: "",
+    categoryId: "",
+    clubId: "",
+    tagIds: [] as string[],
+    globalAllowsNameNumber: true,
+  });
+
+  // Global gender & color (aplica a todas las variantes)
+  const [globalGenders, setGlobalGenders] = useState<string[]>(["HOMBRE"]);
+  const [globalColors, setGlobalColors] = useState<string[]>(["Rojo"]);
+
+  const GENDER_OPTIONS = [
+    { value: "HOMBRE", label: "Hombre" },
+    { value: "MUJER", label: "Mujer" },
+    { value: "NINO", label: "Niño" },
+    { value: "UNISEX", label: "Unisex" },
+  ];
+  const COLOR_OPTIONS = ["Rojo", "Azul", "Blanco", "Negro", "Amarillo", "Verde", "Rosa", "Naranja", "Morado", "Gris"];
+
+  const toggleGlobal = (arr: string[], val: string, setter: (v: string[]) => void) => {
+    setter(arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val]);
+  };
+
+  // NUEVO: ESTADOS PARA GENERACION DE VARIANTES BULK =======
+  const [variants, setVariants] = useState<any[]>([{
+    id: Date.now().toString(),
+    sku: "",
+    size: "M",
+    type: "STADIUM",
+    stock: 50,
+    isDropshippable: true,
+    allowsNameNumber: true,
+    customizationPrice: 199,
+  }]);
+
+  const handleAddVariant = () => {
+    setVariants([...variants, {
+      id: Date.now().toString(),
+      sku: "",
+      size: "L",
+      type: "STADIUM",
+      stock: 50,
+      isDropshippable: true,
+      allowsNameNumber: true,
+      customizationPrice: 199,
+    }]);
+  };
+
+  const handleRemoveVariant = (idToRemove: string) => {
+    if (variants.length === 1) return; // Mínimo 1 variante
+    setVariants(variants.filter(v => v.id !== idToRemove));
+  };
+
+  const handleVariantChange = (id: string, field: string, value: any) => {
+    setVariants(variants.map(v => v.id === id ? { ...v, [field]: value } : v));
+  };
+  // ========================================================
+
+  // 1. CARGAR DATOS
+  useEffect(() => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+
+    api.get('/api/v1/clubs')
+      .then((data) => { if (Array.isArray(data)) setClubs(data); })
+      .catch((err) => console.error(err));
+
+    api.get('/api/v1/tags')
+      .then((data) => { if (Array.isArray(data)) setTags(data); })
+      .catch((err) => console.error(err));
+  }, []);
+
+  // --- OPTIMIZACIÓN: OBTENER LIGAS Y CONTEOS CON USEMEMO ---
+  const leaguesData = useMemo(() => {
+    const map = new Map<string, number>();
+    clubs.forEach(c => {
+      const leagueName = c.league?.name;
+      if (leagueName) {
+        map.set(leagueName, (map.get(leagueName) || 0) + 1);
+      }
+    });
+    // Convertimos a array y ordenamos alfabéticamente
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [clubs]);
+
+  // --- OPTIMIZACIÓN: FILTRADO DE CLUBES ---
+  const filteredClubs = useMemo(() => {
+    return clubs.filter(club => {
+      const matchesSearch = club.name.toLowerCase().includes(clubSearch.toLowerCase());
+      const matchesLeague = selectedLeague ? club.league?.name === selectedLeague : true;
+      return matchesSearch && matchesLeague;
+    });
+  }, [clubs, clubSearch, selectedLeague]);
+
+  const totalClubPages = Math.ceil(filteredClubs.length / CLUBS_PER_PAGE);
+  const displayedClubs = filteredClubs.slice((clubPage - 1) * CLUBS_PER_PAGE, clubPage * CLUBS_PER_PAGE);
+
+  useEffect(() => { setClubPage(1); }, [clubSearch, selectedLeague]);
+
+
+  // --- OPTIMIZACIÓN: FILTRADO DE TAGS ---
+  const filteredTags = useMemo(() => {
+    return tags.filter(tag => tag.name.toLowerCase().includes(tagSearch.toLowerCase()));
+  }, [tags, tagSearch]);
+
+  const totalTagPages = Math.ceil(filteredTags.length / TAGS_PER_PAGE);
+  const displayedTags = filteredTags.slice((tagPage - 1) * TAGS_PER_PAGE, tagPage * TAGS_PER_PAGE);
+  useEffect(() => { setTagPage(1); }, [tagSearch]);
+
+
+  // HANDLERS
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    const base = name.toLowerCase().replace(/ /g, "-").replace(/[^\w-]+/g, "").replace(/-+/g, "-");
+    const suffix = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+    const slug = base ? `${base}-${suffix}` : "";
+    setFormData({ ...formData, name, slug });
+  };
+
+  const handleTagChange = (tagId: string) => {
+    setFormData(prev => {
+      const newTags = prev.tagIds.includes(tagId)
+        ? prev.tagIds.filter(id => id !== tagId)
+        : [...prev.tagIds, tagId];
+      return { ...prev, tagIds: newTags };
+    });
+  };
+
+  const handleClubSelect = (clubId: string) => {
+    setFormData({ ...formData, clubId });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await api.post('/api/v1/products', {
+        ...formData,
+        price: parseFloat(formData.price),
+        compareAtPrice: formData.compareAtPrice ? parseFloat(formData.compareAtPrice) : null,
+        clubId: formData.clubId || undefined,
+        categoryId: formData.categoryId || undefined,
+        brand: formData.brand || undefined,
+        variants: variants.map((v, i) => ({
+          sku: v.sku || `SKU-${Date.now().toString(36)}-${i}`,
+          size: v.size,
+          color: globalColors[0] || null,
+          audience: globalGenders[0] || null,
+          sleeve: "SHORT",
+          hasLeaguePatch: false,
+          hasChampionsPatch: false,
+          allowsNameNumber: formData.globalAllowsNameNumber ? v.allowsNameNumber : false,
+          customizationPrice: formData.globalAllowsNameNumber ? Math.round(Number(v.customizationPrice) * 100) : 0,
+          priceCents: Math.round(parseFloat(formData.price) * 100),
+          compareAtPriceCents: formData.compareAtPrice ? Math.round(parseFloat(formData.compareAtPrice) * 100) : null,
+          costCents: 0,
+          currency: "MXN",
+          stock: Number(v.stock),
+          isDropshippable: v.isDropshippable,
+          weightGrams: 250,
+        }))
+      }, { auth: true });
+
+      router.push("/admin/products");
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 pb-20">
+
+      <div className="flex items-center gap-4">
+        <Link href="/admin/products" className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+          <ArrowLeft className="w-6 h-6 text-slate-600" />
+        </Link>
+        <div>
+          <h1 className="text-3xl font-black uppercase italic text-slate-800">Nuevo Producto</h1>
+          <p className="text-slate-400 text-sm">Agrega un nuevo jersey al catálogo</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+        <div className="md:col-span-2 space-y-6">
+          <div className="bg-white border border-slate-100 p-6 rounded-xl space-y-4">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Nombre</label>
+              <input type="text" required value={formData.name} onChange={handleNameChange} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-800 focus:border-indigo-400 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Slug</label>
+              <input type="text" required value={formData.slug} onChange={(e) => setFormData({ ...formData, slug: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-400 text-sm font-mono focus:border-indigo-400 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Descripción</label>
+              <textarea rows={4} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-800 focus:border-indigo-400 outline-none resize-none" />
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-100 p-6 rounded-xl grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Precio Final</label>
+              <input type="number" required step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-800 focus:border-indigo-400 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Precio Antes</label>
+              <input type="number" step="0.01" value={formData.compareAtPrice} onChange={(e) => setFormData({ ...formData, compareAtPrice: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-800 focus:border-indigo-400 outline-none" />
+            </div>
+          </div>
+
+          {/* GÉNERO & COLOR — GLOBAL (aplica a todas las variantes) */}
+          <div className="bg-white border border-slate-100 p-6 rounded-xl space-y-6">
+            {/* Género multi-select */}
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-3">Género (puede ser más de uno)</label>
+              <div className="flex flex-wrap gap-2">
+                {GENDER_OPTIONS.map((g) => (
+                  <button
+                    key={g.value}
+                    type="button"
+                    onClick={() => toggleGlobal(globalGenders, g.value, setGlobalGenders)}
+                    className={`px-4 py-2 rounded-full text-xs font-bold uppercase border transition-all flex items-center gap-1.5 ${
+                      globalGenders.includes(g.value)
+                        ? "bg-indigo-500 text-white border-indigo-400"
+                        : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-400"
+                    }`}
+                  >
+                    {globalGenders.includes(g.value) && <Check className="w-3 h-3" />}
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color multi-select */}
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-3">Colores del producto</label>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_OPTIONS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => toggleGlobal(globalColors, c, setGlobalColors)}
+                    className={`px-4 py-2 rounded-full text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                      globalColors.includes(c)
+                        ? "bg-slate-800 text-white border-slate-700"
+                        : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-400"
+                    }`}
+                  >
+                    {globalColors.includes(c) && <Check className="w-3 h-3" />}
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-100 p-6 rounded-xl space-y-8">
+
+            {/* --- SELECTOR DE EQUIPOS OPTIMIZADO --- */}
+            <div>
+              <label className="flex items-center gap-2 text-xs font-bold uppercase text-indigo-500 mb-3">
+                <Shield className="w-4 h-4" /> Asignar Equipo (Club)
+              </label>
+
+              {/* PESTAÑAS DE LIGAS */}
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
+                <button
+                  type="button"
+                  onClick={() => setSelectedLeague("")}
+                  className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap transition-colors border ${selectedLeague === ""
+                    ? "bg-indigo-500 text-white border-indigo-400"
+                    : "bg-transparent text-slate-400 border-slate-200 hover:border-slate-300 hover:text-slate-800"
+                    }`}
+                >
+                  Todas ({clubs.length})
+                </button>
+                {leaguesData.map(([name, count]) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setSelectedLeague(name)}
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap transition-colors border ${selectedLeague === name
+                      ? "bg-indigo-500 text-white border-indigo-400"
+                      : "bg-transparent text-slate-400 border-slate-200 hover:border-slate-300 hover:text-slate-800"
+                      }`}
+                  >
+                    {name} <span className="opacity-60 ml-1">({count})</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* BUSCADOR */}
+              <div className="relative mb-3">
+                <input
+                  type="text"
+                  placeholder={`Buscar en ${selectedLeague || "todos"}...`}
+                  value={clubSearch}
+                  onChange={(e) => setClubSearch(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 pl-9 text-xs text-slate-800 focus:border-indigo-400 outline-none transition-all"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+              </div>
+
+              {/* GRID DE CLUBES */}
+              <div className="grid grid-cols-2 gap-2 mb-3 min-h-[100px] content-start">
+                {/* Botón "Sin Equipo" - SOLO aparece si estamos en "Todas" */}
+                {selectedLeague === "" && (
+                  <div
+                    onClick={() => handleClubSelect("")}
+                    className={`p-3 rounded border cursor-pointer transition-all text-xs text-center flex items-center justify-center ${formData.clubId === ""
+                      ? "border-indigo-400 bg-indigo-500/10 text-slate-800 font-bold"
+                      : "border-slate-100 bg-slate-50 text-slate-400 hover:bg-slate-100"
+                      }`}
+                  >
+                    Sin Equipo / General
+                  </div>
+                )}
+
+                {displayedClubs.map((club) => (
+                  <div
+                    key={club.id}
+                    onClick={() => handleClubSelect(club.id)}
+                    className={`p-3 rounded border cursor-pointer transition-all text-xs truncate ${formData.clubId === club.id
+                      ? "border-indigo-400 bg-indigo-500/10 text-slate-800 font-bold"
+                      : "border-slate-100 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    title={club.name}
+                  >
+                    {club.name}
+                  </div>
+                ))}
+
+                {displayedClubs.length === 0 && (
+                  <div className="col-span-2 text-center py-4 text-slate-500 text-xs italic border border-dashed border-slate-200 rounded">
+                    No se encontraron equipos en esta liga.
+                  </div>
+                )}
+              </div>
+
+              {/* PAGINACIÓN CLUBES */}
+              {totalClubPages > 1 && (
+                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
+                  <button type="button" onClick={() => setClubPage(p => Math.max(1, p - 1))} disabled={clubPage === 1} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronLeft className="w-4 h-4 text-slate-600" /></button>
+                  <span className="text-[10px] text-slate-400">{clubPage} / {totalClubPages}</span>
+                  <button type="button" onClick={() => setClubPage(p => Math.min(totalClubPages, p + 1))} disabled={clubPage === totalClubPages} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronRight className="w-4 h-4 text-slate-600" /></button>
+                </div>
+              )}
+            </div>
+
+            {/* --- SELECTOR DE TAGS --- */}
+            <div className="pt-4 border-t border-slate-200">
+              <label className="flex items-center gap-2 text-xs font-bold uppercase text-indigo-500 mb-3">
+                <Tag className="w-4 h-4" /> Etiquetas / Estilos
+              </label>
+
+              <div className="relative mb-3">
+                <input
+                  type="text"
+                  placeholder="Buscar etiquetas..."
+                  value={tagSearch}
+                  onChange={(e) => setTagSearch(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 pl-9 text-xs text-slate-800 focus:border-indigo-400 outline-none"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-3 min-h-[100px] content-start">
+                {displayedTags.map((tag) => (
+                  <label key={tag.id} className="flex items-center gap-2 p-2 rounded bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors border border-slate-100 has-[:checked]:border-indigo-400 has-[:checked]:bg-indigo-500/10 h-fit">
+                    <input
+                      type="checkbox"
+                      className="accent-indigo-500"
+                      checked={formData.tagIds.includes(tag.id)}
+                      onChange={() => handleTagChange(tag.id)}
+                    />
+                    <span className="text-xs text-slate-600 select-none truncate" title={tag.name}>{tag.name}</span>
+                  </label>
+                ))}
+              </div>
+
+              {totalTagPages > 1 && (
+                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
+                  <button type="button" onClick={() => setTagPage(p => Math.max(1, p - 1))} disabled={tagPage === 1} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronLeft className="w-4 h-4 text-slate-600" /></button>
+                  <span className="text-[10px] text-slate-400">{tagPage} / {totalTagPages}</span>
+                  <button type="button" onClick={() => setTagPage(p => Math.min(totalTagPages, p + 1))} disabled={tagPage === totalTagPages} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ChevronRight className="w-4 h-4 text-slate-600" /></button>
+                </div>
+              )}
+
+              <div className="mt-2 text-right">
+                <p className="text-[10px] text-slate-500">Tags seleccionados: <span className="text-indigo-500 font-bold">{formData.tagIds.length}</span></p>
+              </div>
+            </div>
+
+            {/* OTROS CAMPOS */}
+            <div className="pt-4 border-t border-slate-200 grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Marca</label>
+                <input type="text" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-800 focus:border-indigo-400 outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">ID Categoría</label>
+                <input type="text" required value={formData.categoryId} onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-800 font-mono text-xs focus:border-indigo-400 outline-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* TOGGLE GLOBAL DE PERSONALIZACIÓN */}
+          <div className="bg-white border border-indigo-400/20 p-6 rounded-xl flex items-center justify-between">
+            <div>
+              <h3 className="text-indigo-500 font-bold uppercase mb-1">Jersey Personalizable</h3>
+              <p className="text-slate-500 text-xs text-balance">Habilita esta opción si quieres permitir estampar un nombre y número en las playeras.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" checked={formData.globalAllowsNameNumber} onChange={(e) => setFormData({ ...formData, globalAllowsNameNumber: e.target.checked })} className="sr-only peer" />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+            </label>
+          </div>
+
+          {/* NUEVA SECCIÓN: GENERADOR DE VARIANTES */}
+          <div className="bg-white border border-slate-100 p-6 rounded-xl space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-slate-800 font-bold uppercase">Variantes del Producto</h3>
+                <p className="text-slate-500 text-xs">Agrega tallas y configuración de envío. Color y género se aplican globalmente arriba.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddVariant}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Agregar Variante
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {variants.map((v, index) => (
+                <div key={v.id} className="p-4 bg-slate-50 border border-slate-200 rounded-lg relative overflow-hidden group">
+
+                  {/* Etiqueta Variante # */}
+                  <div className="absolute top-0 left-0 bg-indigo-500/20 text-indigo-500 px-2 py-1 text-[10px] font-black uppercase rounded-br-lg">
+                    Var {index + 1}
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                    {/* Talla */}
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Talla</label>
+                      <select value={v.size} onChange={e => handleVariantChange(v.id, "size", e.target.value)} className="w-full bg-slate-100 border border-slate-200 rounded px-2 py-2 text-xs text-slate-800 focus:border-indigo-400 outline-none">
+                        <option value="XS">XS</option>
+                        <option value="S">S</option>
+                        <option value="M">M</option>
+                        <option value="L">L</option>
+                        <option value="XL">XL</option>
+                        <option value="XXL">XXL</option>
+                        <option value="2XL">2XL</option>
+                      </select>
+                    </div>
+
+                    {/* Stock */}
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Stock Local</label>
+                      <input type="number" min="0" value={v.stock} onChange={e => handleVariantChange(v.id, "stock", parseInt(e.target.value) || 0)} className="w-full bg-slate-100 border border-slate-200 rounded px-2 py-2 text-xs text-slate-800 focus:border-indigo-400 outline-none" />
+                    </div>
+
+                    {/* Dropshippable & Customization */}
+                    <div className="col-span-2 flex items-center justify-between bg-slate-50 px-3 py-2 rounded border border-slate-100">
+                      <label className="text-xs text-slate-600 font-bold">¿Permite Dropshipping?</label>
+                      <input type="checkbox" checked={v.isDropshippable} onChange={e => handleVariantChange(v.id, "isDropshippable", e.target.checked)} className="w-4 h-4 accent-indigo-500" />
+                    </div>
+                    <div className="col-span-2 flex flex-col gap-2">
+                      <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded border border-slate-100">
+                        <label className="text-xs text-slate-600 font-bold truncate">Permite Envío Dropshipping</label>
+                        <input type="checkbox" checked={v.isDropshippable} onChange={e => handleVariantChange(v.id, "isDropshippable", e.target.checked)} className="w-4 h-4 accent-indigo-500 flex-shrink-0" />
+                      </div>
+
+                      {formData.globalAllowsNameNumber && (
+                        <div className="flex flex-col gap-2 bg-indigo-500/5 px-3 py-2 rounded border border-indigo-400/20">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs text-indigo-500 font-bold truncate">Personalizable (Variante)</label>
+                            <input type="checkbox" checked={v.allowsNameNumber} onChange={e => handleVariantChange(v.id, "allowsNameNumber", e.target.checked)} className="w-4 h-4 accent-indigo-500 flex-shrink-0" />
+                          </div>
+                          {v.allowsNameNumber && (
+                            <div className="flex items-center gap-2 mt-1 border-t border-slate-100 pt-2">
+                              <label className="text-[10px] text-slate-500 uppercase font-bold">Costo Extra ($ MXN):</label>
+                              <input type="number" min="0" value={v.customizationPrice} onChange={e => handleVariantChange(v.id, "customizationPrice", parseInt(e.target.value) || 0)} className="w-20 bg-white border border-indigo-400/30 text-slate-800 text-xs px-2 py-1 rounded outline-none focus:border-indigo-400" />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveVariant(v.id)}
+                    className="absolute top-2 right-2 p-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-slate-800 rounded transition-colors opacity-0 group-hover:opacity-100"
+                    title="Eliminar Variante"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {/* ---- IMAGEN DEL PRODUCTO (Cloudinary) ---- */}
+          <div className="bg-white border border-slate-100 p-6 rounded-xl flex flex-col items-center space-y-4">
+            <div className="w-full text-left mb-1">
+              <p className="text-xs font-bold uppercase text-slate-500">Foto del Jersey</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">La imagen se sube directamente a Cloudinary — optimizada y lista para la tienda.</p>
+            </div>
+            <ImageUploadWidget
+              images={formData.images}
+              onChange={(newImages) => {
+                setFormData(prev => ({ ...prev, images: newImages, imageUrl: newImages[0] || "" }));
+              }}
+            />
+          </div>
+
+          <button type="submit" disabled={loading} className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-black uppercase py-4 rounded-xl shadow-indigo-100 shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            {loading ? "Guardando..." : "Guardar Producto"}
+          </button>
+
+          {error && <p className="text-red-500 text-xs text-center">{error}</p>}
+        </div>
+      </form>
+    </div>
+  );
+}
