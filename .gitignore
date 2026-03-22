@@ -18,3 +18,5 @@ Thumbs.db
 
 # Prisma
 prisma/migrations/*.sql
+.next/
+*.exe
