@@ -13,6 +13,8 @@ export default function LoginClient() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/account';
 
+  const reset = searchParams.get('reset');
+
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
@@ -56,6 +58,12 @@ export default function LoginClient() {
             onSubmit={handleSubmit}
             className="bg-theme-card border border-th-border rounded-2xl p-8 space-y-5 shadow-lg"
           >
+            {reset && (
+              <div className="bg-green-500/10 border border-green-500/30 text-green-400 text-sm rounded-lg px-4 py-3">
+                Contraseña actualizada correctamente. Ya puedes iniciar sesión.
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
                 {error}
@@ -88,6 +96,11 @@ export default function LoginClient() {
                 placeholder="••••••••"
                 className="w-full bg-theme-bg border border-th-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F8C37C] transition-colors"
               />
+              <div className="text-right mt-1.5">
+                <Link href="/forgot-password" className="text-xs text-[#F8C37C] hover:underline">
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
             </div>
 
             <button

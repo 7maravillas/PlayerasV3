@@ -1,7 +1,26 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Package, ChevronLeft, ChevronRight, Eye, Loader2, Truck, Clock, CheckCircle, XCircle, ArrowRight, PlaneTakeoff } from "lucide-react";
+import { Package, ChevronLeft, ChevronRight, Eye, Loader2, Truck, Clock, CheckCircle, XCircle, ArrowRight, FileDown } from "lucide-react";
 import { api } from "@/lib/api";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
+
+function downloadAdminPDF(url: string, filename: string) {
+    const token = localStorage.getItem("admin_token") || "";
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => {
+            if (!r.ok) throw new Error("Error al generar PDF");
+            return r.blob();
+        })
+        .then(blob => {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        })
+        .catch(() => alert("No se pudo generar el PDF"));
+}
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
     PENDING_PAYMENT: { label: "Pendiente de Pago", color: "bg-amber-50 text-amber-600 border-amber-200", icon: Clock },
@@ -42,6 +61,13 @@ export default function AdminOrdersPage() {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [changingStatus, setChangingStatus] = useState<string | null>(null);
     const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
+
+    // Reporte por período
+    const today = new Date().toISOString().split("T")[0];
+    const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
+    const [reportFrom, setReportFrom] = useState(firstOfMonth);
+    const [reportTo, setReportTo]     = useState(today);
+    const [reportLoading, setReportLoading] = useState(false);
 
     const fetchOrders = async (pageNum: number, status?: string) => {
         setLoading(true);
@@ -106,6 +132,53 @@ export default function AdminOrdersPage() {
                     Órdenes
                     <span className="text-sm font-normal text-slate-400 ml-2">({total})</span>
                 </h1>
+            </div>
+
+            {/* REPORTE POR PERÍODO */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-wrap items-end gap-3">
+                <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Desde</label>
+                    <input
+                        type="date"
+                        value={reportFrom}
+                        onChange={e => setReportFrom(e.target.value)}
+                        className="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:border-indigo-400 outline-none"
+                    />
+                </div>
+                <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Hasta</label>
+                    <input
+                        type="date"
+                        value={reportTo}
+                        onChange={e => setReportTo(e.target.value)}
+                        className="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:border-indigo-400 outline-none"
+                    />
+                </div>
+                <button
+                    disabled={reportLoading}
+                    onClick={() => {
+                        setReportLoading(true);
+                        const url = `${API_BASE}/api/v1/admin/orders/report/pdf?from=${reportFrom}&to=${reportTo}`;
+                        const token = localStorage.getItem("admin_token") || "";
+                        fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+                            .then(r => { if (!r.ok) throw new Error(); return r.blob(); })
+                            .then(blob => {
+                                const a = document.createElement("a");
+                                a.href = URL.createObjectURL(blob);
+                                a.download = `reporte-${reportFrom}-${reportTo}.pdf`;
+                                a.click();
+                                URL.revokeObjectURL(a.href);
+                            })
+                            .catch(() => alert("No se pudo generar el reporte"))
+                            .finally(() => setReportLoading(false));
+                    }}
+                    className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
+                >
+                    {reportLoading
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <FileDown className="w-4 h-4" />}
+                    Descargar reporte
+                </button>
             </div>
 
             {/* FILTROS — STATUS */}
@@ -238,6 +311,30 @@ export default function AdminOrdersPage() {
                                                     <p className="mt-1">Tracking: <span className="font-mono text-indigo-500">{order.trackingNumber}</span></p>
                                                 )}
                                             </div>
+                                        </div>
+
+                                        {/* Descargar PDF */}
+                                        <div className="pt-2">
+                                            <button
+                                                onClick={() => {
+                                                    const token = localStorage.getItem('admin_token') || '';
+                                                    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'}/api/v1/admin/orders/${order.id}/pdf`, {
+                                                        headers: { Authorization: `Bearer ${token}` },
+                                                    })
+                                                        .then(r => r.blob())
+                                                        .then(blob => {
+                                                            const url = URL.createObjectURL(blob);
+                                                            const a = document.createElement('a');
+                                                            a.href = url;
+                                                            a.download = `orden-${order.orderNumber}.pdf`;
+                                                            a.click();
+                                                            URL.revokeObjectURL(url);
+                                                        });
+                                                }}
+                                                className="text-xs font-bold text-slate-400 hover:text-indigo-500 border border-slate-200 hover:border-indigo-300 rounded-lg px-3 py-1.5 transition-colors"
+                                            >
+                                                ↓ PDF
+                                            </button>
                                         </div>
 
                                         {/* Status change */}

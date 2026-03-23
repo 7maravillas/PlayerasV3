@@ -3,7 +3,8 @@ import AccountClient from "./AccountClient";
 
 export const metadata: Metadata = {
   title: "Mi Cuenta",
-  description: "Gestiona tu cuenta y revisa tu historial de pedidos en Jerseys Raw.",
+  description: "Revisa tus pedidos, descarga comprobantes y edita tu perfil.",
+  robots: { index: false, follow: false },
 };
 
 export default function AccountPage() {

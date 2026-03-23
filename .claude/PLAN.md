@@ -255,3 +255,200 @@ Tras cada tarea:
 - Frontend: `cd frontend && npm run typecheck && npm run lint`
 - Integración: Iniciar ambos servidores y probar el flujo manualmente
 - DB migrations: `npm run prisma:migrate` solo en B7
+
+---
+
+## Tareas Extra (Post-Sprint 4)
+
+### ✅ Ya Implementadas (sin acción)
+
+| Tarea | Verificación |
+|-------|-------------|
+| **Responsive mobile general** | Tailwind responsive (sm:, md:, lg:, xl:) en todas las páginas: Hero.tsx, ProductListing.tsx (grid + overlay mobile), ProductDetailClient.tsx, Navbar.tsx (hamburger `md:hidden`), CartSidebar.tsx (`w-full md:w-[450px]`), checkout. |
+| **Filtro de color funcional** | Frontend: 9 swatches en ProductListing.tsx (líneas 91-101, 297-314), sync URL params `colors=`. Backend: product.routes.ts (líneas 33, 66-69) filtra case-insensitive en `ProductVariant.color`. |
+
+---
+
+### FRONTEND
+
+---
+
+#### 🔴 EX1 — Dropdown navbar theme-aware (blanco/negro según página)
+**Complejidad:** Baja
+**Archivos:** `frontend/components/Navbar.tsx` (líneas 368-412)
+**Solución:**
+El dropdown del menú de usuario (línea 368) tiene colores hardcodeados `bg-white text-black border-gray-100` que no respetan el tema oscuro de la homepage. Reemplazar:
+- `bg-white` → `bg-theme-card`
+- `text-black` → `text-th-primary`
+- `border-gray-100` → `border-th-border/10`
+- `text-gray-400` → `text-th-secondary`
+- `hover:bg-gray-50` → `hover:bg-theme-surface`
+- `text-gray-500` → `text-th-secondary`
+- `text-gray-600` → `text-th-secondary`
+
+Aplicar tanto al bloque autenticado (líneas 371-389) como al no autenticado (líneas 392-410). Las clases `bg-theme-card`, `text-th-primary`, etc. ya están definidas en `tailwind.config.ts` y `globals.css`.
+
+---
+
+#### 🔴 EX2 — Recuperar contraseña (frontend)
+**Complejidad:** Media
+**Archivos:**
+- `frontend/app/forgot-password/page.tsx` (nuevo)
+- `frontend/app/reset-password/page.tsx` (nuevo)
+- `frontend/app/login/LoginClient.tsx` (agregar link, línea 91)
+
+**Solución:**
+Backend ya implementado: `POST /auth/forgot-password` (auth.routes.ts:147), `POST /auth/reset-password` (auth.routes.ts:178), `sendPasswordResetEmail` (mailer.ts:245).
+
+1. **LoginClient.tsx**: Agregar `<Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>` entre líneas 91-92 con estilo `text-sm text-accent hover:underline`.
+2. **forgot-password/page.tsx**: Formulario con campo email. Submit llama `POST /api/v1/auth/forgot-password` vía `apiFetch`. Mensaje genérico de éxito. Seguir patrón visual de LoginClient (clases: `bg-theme-card`, `border border-th-border`, heading dorado).
+3. **reset-password/page.tsx**: Formulario con email (prellenado vía query param), código 6 dígitos, nueva contraseña. Submit llama `POST /api/v1/auth/reset-password`. Éxito redirige a `/login`. Mismos estilos.
+
+---
+
+#### 🟡 EX7 — Productos destacados bajo reviews
+**Complejidad:** Baja
+**Archivos:** `frontend/app/reviews/page.tsx` (agregar sección antes de línea 462)
+**Solución:**
+La página de reviews termina sin sección de productos. Agregar después del `</div>` de línea 460:
+1. Sección con título "Productos Destacados" y grid 2x2 (mobile) / 4 cols (desktop).
+2. Fetch a `GET /api/v1/products?limit=4&sort=newest` (endpoint ya existe).
+3. Cards con imagen, nombre, precio, link a `/product/[id]`. Reutilizar patrón visual de ProductListing.tsx.
+
+---
+
+#### 🟡 EX5-F — Buscador optimizado (parte frontend)
+**Complejidad:** Media
+**Archivos:** `frontend/components/Navbar.tsx` (líneas 80-191, mega-menu 437-493)
+**Solución:**
+Búsqueda funcional ~70%. Mejoras frontend:
+1. **Historial de búsquedas recientes**: Al enfocar input vacío, mostrar últimas 5 búsquedas desde `localStorage` key `search-history`. Guardar al hacer Enter.
+2. **Highlighting**: En mega-menu de resultados, envolver coincidencias en `<mark className="bg-accent/20">`.
+
+---
+
+### BACKEND
+
+---
+
+#### 🔴 EX3-B — Admin Clientes (endpoints)
+**Complejidad:** Media
+**Archivos:** `backend/src/routes/admin.routes.ts`
+**Solución:**
+admin.routes.ts solo tiene `POST /login`. Agregar:
+1. `GET /api/v1/admin/customers` — lista paginada de Users con role CUSTOMER. Query con `include: { _count: { select: { orders: true } } }`. Soportar `?search=`, `?page=`, `?limit=`.
+2. `GET /api/v1/admin/customers/:id` — detalle con órdenes recientes.
+3. Proteger con middleware admin auth (verificar JWT con `role: 'admin'`).
+
+---
+
+#### 🔴 EX4-B — Panel usuario Settings (endpoint + migración)
+**Complejidad:** Baja-Media
+**Archivos:**
+- `backend/prisma/schema.prisma` (agregar campo `phone String?` a User)
+- `backend/src/routes/auth.routes.ts` (agregar PUT /auth/me)
+
+**Solución:**
+1. Agregar campo `phone String?` al modelo User en schema.prisma (requiere migración).
+2. Agregar `PUT /api/v1/auth/me` protegido con `requireAuth`: acepta `name`, `phone`. Validar con Zod. Retorna usuario actualizado.
+
+---
+
+#### 🟡 EX5-B — Buscador optimizado (parte backend)
+**Complejidad:** Media
+**Archivos:**
+- `backend/src/routes/search.routes.ts`
+- `backend/src/repositories/product.repository.ts` (líneas 66-105)
+
+**Solución:**
+En product.repository.ts, splitear query en palabras y buscar con OR (actualmente busca frase completa con `contains`). Permite encontrar "Real Madrid azul" aunque no sea frase exacta.
+
+---
+
+#### 🟡 EX6 — PDF de orden mejorado
+**Complejidad:** Media
+**Archivos:**
+- `backend/package.json` (agregar `pdfkit`)
+- `backend/src/services/pdf.service.ts` (nuevo)
+- `backend/src/routes/order.routes.ts` (nuevo endpoint)
+- `frontend/app/account/AccountClient.tsx` (botón descargar)
+- `frontend/app/admin/orders/page.tsx` (botón descargar)
+
+**Solución:**
+No existe generación de PDF. Solo emails HTML en mailer.ts.
+1. Instalar `pdfkit` en backend.
+2. Crear `pdf.service.ts` con `generateOrderPDF(order): Buffer` — header con nombre tienda, datos cliente, tabla de items (producto, talla, color, qty, precio), totales, # orden, fecha, tracking.
+3. Agregar `GET /api/v1/orders/:id/pdf` protegido con requireAuth (verifica que orden pertenece al usuario).
+4. Agregar `GET /api/v1/admin/orders/:id/pdf` protegido con admin auth.
+5. En AccountClient.tsx y admin orders page, agregar botón "Descargar PDF" que abre `window.open(url)`.
+
+---
+
+#### 🟢 EX8 — Sistema de recompensas
+**Complejidad:** Alta
+**Archivos:**
+- `backend/prisma/schema.prisma` (nuevos modelos: `RewardTransaction`, campo `rewardPoints` en User)
+- `backend/src/routes/rewards.routes.ts` (nuevo)
+- `backend/src/services/rewards.service.ts` (nuevo)
+- `frontend/app/account/rewards/page.tsx` (nuevo)
+- `frontend/app/admin/rewards/page.tsx` (nuevo)
+- `frontend/app/checkout/page.tsx` (integrar redención)
+
+**Solución:**
+Cero implementación. Subdividir en fases:
+- **Fase 1 — Earn en órdenes:** Modelo `RewardTransaction` (id, userId, type enum, points, description, orderId?, createdAt). Campo `rewardPoints Int @default(0)` en User. Service `earnPoints` llamado en webhook Stripe. Endpoints GET /rewards/balance y /rewards/history. Página `/account/rewards`.
+- **Fase 2 — Redeem en checkout:** Endpoint `POST /rewards/redeem` genera descuento. Integración en checkout.
+- **Fase 3 — Admin config:** Modelo `RewardConfig` (singleton). Página admin para tasas.
+
+---
+
+#### 🟢 EX9 — CRM interno
+**Complejidad:** Alta
+**Depende de:** EX3 (Admin Clientes) como base
+**Archivos:**
+- `backend/prisma/schema.prisma` (modelo `CustomerNote`, campo `tags String[]` en User)
+- `backend/src/routes/admin.routes.ts` (endpoints CRM)
+- `frontend/app/admin/crm/page.tsx` (nuevo)
+
+**Solución:**
+Requiere EX3 primero. Luego extender:
+- **Backend:** Modelo `CustomerNote` (id, userId, adminNote, createdAt). Campo `tags String[]` en User. Endpoints: GET /admin/crm/customers (enriquecido con totalSpent, lastOrderDate, tags), POST /admin/crm/customers/:id/notes, PUT /admin/crm/customers/:id/tags.
+- **Frontend:** Página `/admin/crm` con tabla enriquecida, filtros por segmento, buscador. Detalle de cliente con timeline, notas, métricas. Link en AdminSidebar.tsx.
+- Email masivo fuera de scope.
+
+---
+
+### FULLSTACK (requieren cambios en ambos lados simultáneamente)
+
+---
+
+#### 🔴 EX3-F — Admin Clientes (página frontend)
+**Complejidad:** Media
+**Depende de:** EX3-B (endpoints backend)
+**Archivos:** `frontend/app/admin/customers/page.tsx` (nuevo)
+**Solución:**
+AdminSidebar.tsx (línea 12) tiene link a `/admin/customers` que es dead link. Crear página siguiendo patrón de `admin/orders/page.tsx`: tabla con columnas (Nombre, Email, Verificado, # Órdenes, Fecha registro), buscador, paginación.
+
+---
+
+#### 🔴 EX4-F — Panel usuario Settings (página frontend)
+**Complejidad:** Media
+**Depende de:** EX4-B (endpoint PUT /auth/me)
+**Archivos:**
+- `frontend/app/account/settings/page.tsx` (nuevo)
+- `frontend/app/account/AccountClient.tsx` (agregar link)
+
+**Solución:**
+1. En AccountClient.tsx agregar botón "Editar perfil" → `/account/settings`.
+2. Crear `account/settings/page.tsx`: formulario con nombre + teléfono (prellenados desde GET /auth/me). Botón guardar llama PUT /auth/me. Sección "Cambiar contraseña" redirige a `/forgot-password`.
+
+---
+
+### Orden de Implementación Recomendado
+
+| Fase | Tareas | Justificación |
+|------|--------|---------------|
+| **Fase 1** | EX1, EX2, EX7 | Rápidas, solo frontend, alto impacto visual |
+| **Fase 2** | EX3-B → EX3-F, EX4-B → EX4-F | Core admin + usuario, backend primero |
+| **Fase 3** | EX5-B + EX5-F, EX6 | Mejoras de experiencia, independientes |
+| **Fase 4** | EX8, EX9 | Features avanzados, subdividir en sub-sprints |

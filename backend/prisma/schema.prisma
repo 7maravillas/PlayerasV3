@@ -337,6 +337,7 @@ model User {
   email              String              @unique
   passwordHash       String
   name               String?
+  phone              String?
   role               UserRole            @default(CUSTOMER)
   emailVerifiedAt    DateTime?
   createdAt          DateTime            @default(now())

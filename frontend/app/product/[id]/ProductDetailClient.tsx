@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Share2, Star, Truck, ShieldCheck, Ruler, ZoomIn } from "lucide-react";
+import { ArrowLeft, Share2, Star, Truck, ShieldCheck, Ruler, ZoomIn, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/Navbar";
@@ -55,6 +55,13 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [zoomActive, setZoomActive] = useState(false);
   const zoomRef = useRef<HTMLDivElement>(null);
+
+  // Carrusel "Productos que te pueden gustar"
+  const [carouselProducts, setCarouselProducts] = useState<any[]>([]);
+  const [carouselLoading, setCarouselLoading] = useState(true);
+  const [canPrev, setCanPrev] = useState(false);
+  const [canNext, setCanNext] = useState(false);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   // ======= LÓGICA REACTIVA DE VARIANTES =======
   const ALL_SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL'];
@@ -130,6 +137,42 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
+  // Fetch carrusel — excluye el producto actual
+  useEffect(() => {
+    fetch(`${API_BASE}/api/v1/products?limit=8`)
+      .then(r => r.json())
+      .then(data => {
+        const list = data?.items ?? data;
+        const filtered = Array.isArray(list)
+          ? list.filter((p: any) => p.id !== productId)
+          : [];
+        setCarouselProducts(filtered);
+      })
+      .catch(() => {})
+      .finally(() => setCarouselLoading(false));
+  }, [productId]);
+
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+    setCanNext(el.scrollWidth > el.clientWidth + 4);
+  }, [carouselLoading, carouselProducts]);
+
+  const scrollCarousel = (dir: 1 | -1) => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const card = el.children[0] as HTMLElement;
+    const step = (card?.offsetWidth ?? 200) + 16;
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
+
+  const onCarouselScroll = () => {
+    const el = carouselRef.current;
+    if (!el) return;
+    setCanPrev(el.scrollLeft > 4);
+    setCanNext(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
 
   if (loading || !mounted) {
     return <ProductSkeleton />;
@@ -606,8 +649,109 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
         </div>
       </div>
 
-      {/* RESEÑAS — Lo que opinan los expertos */}
+      {/* RESEÑAS — No nos creas a nosotros... */}
+      <div className="max-w-4xl mx-auto px-4 mt-20 text-center">
+        <h2 className="text-3xl md:text-4xl font-bold text-black mb-2 px-4 uppercase tracking-tighter italic">
+          No nos creas a nosotros... creelé a ellos
+        </h2>
+      </div>
       <ReviewsSection currentProductId={productId} currentProductName={product?.name} />
+
+      {/* ═══ CARRUSEL: Productos que te pueden gustar ═══ */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 max-w-[1400px] mx-auto overflow-hidden">
+          <div className="flex flex-col items-center justify-center mb-10 text-center">
+            <h2 className="text-3xl sm:text-4xl font-black italic tracking-tighter text-black uppercase">
+              Productos que te pueden gustar
+            </h2>
+          </div>
+
+          <div className="relative group/carousel">
+            {/* BOTONES FLOTANTES */}
+            <button
+              onClick={() => scrollCarousel(-1)}
+              disabled={!canPrev}
+              className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/80 backdrop-blur-md border border-neutral-200 shadow-xl hover:bg-black hover:text-white hover:border-black transition-all duration-300 -ml-4 md:-ml-6 ${
+                canPrev ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
+              }`}
+              aria-label="Anterior"
+            >
+              <ChevronLeft size={24} />
+            </button>
+
+            <button
+              onClick={() => scrollCarousel(1)}
+              disabled={!canNext}
+              className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/80 backdrop-blur-md border border-neutral-200 shadow-xl hover:bg-black hover:text-white hover:border-black transition-all duration-300 -mr-4 md:-mr-6 ${
+                canNext ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
+              }`}
+              aria-label="Siguiente"
+            >
+              <ChevronRight size={24} />
+            </button>
+
+            <div
+              ref={carouselRef}
+              onScroll={onCarouselScroll}
+              className="flex gap-4 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-2"
+            >
+            {carouselLoading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex-none w-[45%] md:w-[23%]">
+                    <div className="aspect-square rounded-2xl bg-neutral-100 animate-pulse mb-3" />
+                    <div className="h-3 rounded bg-neutral-100 animate-pulse mb-2 w-4/5" />
+                    <div className="h-3 rounded bg-neutral-100 animate-pulse w-2/5" />
+                  </div>
+                ))
+              : carouselProducts.map(p => {
+                  const price = (p.variants?.[0]?.priceCents ?? 0) / 100;
+                  const compare = (p.variants?.[0]?.compareAtPriceCents ?? 0) / 100;
+                  const isSale = compare > 0 && compare > price;
+                  const imgUrl = p.images?.[0]?.url ?? p.imageUrl ?? '';
+
+                  return (
+                    <Link
+                      key={p.id}
+                      href={`/product/${p.id}`}
+                      className="flex-none w-[45%] md:w-[23%] group"
+                    >
+                      <div className="aspect-square relative overflow-hidden rounded-2xl bg-neutral-100 border border-neutral-200/60 mb-3 hover:shadow-lg hover:shadow-neutral-200/50 transition-shadow duration-300">
+                        {imgUrl ? (
+                          <Image
+                            src={imgUrl}
+                            alt={p.name}
+                            fill
+                            sizes="(max-width: 768px) 45vw, 23vw"
+                            className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-neutral-100 animate-pulse" />
+                        )}
+                      </div>
+                      <h3 className="text-sm text-neutral-900 font-medium leading-snug group-hover:underline line-clamp-2 mb-1">
+                        {p.name}
+                      </h3>
+                      <div className="flex items-center gap-1.5">
+                        {isSale ? (
+                          <>
+                            <span className="text-xs text-neutral-400 line-through">
+                              ${compare.toFixed(2).replace(/\.00$/, '')}
+                            </span>
+                            <span className="text-sm font-bold text-red-500">
+                              ${price.toFixed(2).replace(/\.00$/, '')}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-sm font-semibold text-neutral-900">
+                            {price > 0 ? `$${price.toFixed(2).replace(/\.00$/, '')}` : '—'}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+            </div>
+          </div>
+      </section>
 
     </div>
   );

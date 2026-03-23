@@ -114,21 +114,29 @@ export default function AccountClient() {
         </div>
 
         {/* ── Info de perfil ── */}
-        <div className="bg-theme-card border border-th-border rounded-2xl p-6 mb-8 flex flex-wrap gap-6">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-th-secondary mb-1">Correo</p>
-            <p className="text-sm">{user.email}</p>
-          </div>
-          {user.name && (
+        <div className="bg-theme-card border border-th-border rounded-2xl p-6 mb-8">
+          <div className="flex flex-wrap gap-6 mb-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-th-secondary mb-1">Nombre</p>
-              <p className="text-sm">{user.name}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-th-secondary mb-1">Correo</p>
+              <p className="text-sm">{user.email}</p>
             </div>
-          )}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-th-secondary mb-1">Tipo de cuenta</p>
-            <p className="text-sm capitalize">{user.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
+            {user.name && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-th-secondary mb-1">Nombre</p>
+                <p className="text-sm">{user.name}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-th-secondary mb-1">Tipo de cuenta</p>
+              <p className="text-sm capitalize">{user.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
+            </div>
           </div>
+          <Link
+            href="/account/settings"
+            className="inline-block text-xs font-bold uppercase tracking-widest border border-th-border rounded-xl px-4 py-2 text-th-secondary hover:text-th-primary hover:border-[#F8C37C] transition-colors"
+          >
+            Editar perfil
+          </Link>
         </div>
 
         {/* ── Historial de órdenes ── */}
@@ -245,6 +253,34 @@ export default function AccountClient() {
                             </Link>
                           </span>
                         )}
+                      </div>
+
+                      {/* Descargar PDF */}
+                      <div className="border-t border-th-border pt-4">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'}/api/v1/orders/${order.id}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => {
+                            // Añadir auth header no es posible con <a>, usamos fetch + blob
+                            e.preventDefault();
+                            fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'}/api/v1/orders/${order.id}/pdf`, {
+                              headers: { Authorization: `Bearer ${token}` },
+                            })
+                              .then(r => r.blob())
+                              .then(blob => {
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `orden-${order.orderNumber}.pdf`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                              });
+                          }}
+                          className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest border border-th-border rounded-xl px-4 py-2 text-th-secondary hover:border-[#F8C37C] hover:text-[#F8C37C] transition-colors"
+                        >
+                          ↓ Descargar PDF
+                        </a>
                       </div>
                     </div>
                   )}

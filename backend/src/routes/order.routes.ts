@@ -6,6 +6,8 @@ import { requireAuth } from '../middlewares/requireAuth.js';
 import { verifyToken } from '../lib/auth.js';
 import { CreateOrderSchema, UpdateOrderStatusSchema } from '../validators/order.validator.js';
 import { SHIPPING } from '../config/shipping.js';
+import { generateOrderPDF } from '../services/pdf.service.js';
+import { generateReportPDF } from '../services/pdf.service.js';
 
 const router = Router();
 
@@ -573,6 +575,29 @@ router.post('/orders/:orderNumber/stripe-session', async (req: Request, res: Res
     } catch (error) {
         console.error('Error creando sesión de Stripe:', error);
         return res.status(500).json({ error: 'Error al conectar con la pasarela de pago.' });
+    }
+});
+
+/* ─── GET /orders/:id/pdf — Descargar PDF de una orden (usuario autenticado) ─── */
+router.get('/orders/:id/pdf', requireAuth, async (req: Request, res: Response) => {
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id: req.params.id },
+            include: { items: true },
+        });
+
+        if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
+
+        const isOwner = order.userId === req.user!.sub || order.email === req.user!.sub;
+        const isAdmin = req.user!.role === 'admin';
+        if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Acceso denegado' });
+
+        const buffer = await generateOrderPDF(order);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="orden-${order.orderNumber}.pdf"`);
+        res.send(buffer);
+    } catch {
+        res.status(500).json({ error: 'Error generando PDF' });
     }
 });
 

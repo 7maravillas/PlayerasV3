@@ -135,10 +135,32 @@ router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.sub },
-      select: { id: true, email: true, name: true, role: true, createdAt: true },
+      select: { id: true, email: true, name: true, phone: true, role: true, createdAt: true },
     });
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
     return res.json(user);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/v1/auth/me
+const UpdateProfileSchema = z.object({
+  name:  z.string().min(1).max(120).optional(),
+  phone: z.string().max(20).optional().nullable(),
+});
+
+router.put('/me', requireAuth, async (req, res, next) => {
+  try {
+    const parsed = UpdateProfileSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    const updated = await prisma.user.update({
+      where: { id: req.user!.sub },
+      data: parsed.data,
+      select: { id: true, email: true, name: true, phone: true, role: true, createdAt: true },
+    });
+    return res.json(updated);
   } catch (err) {
     next(err);
   }

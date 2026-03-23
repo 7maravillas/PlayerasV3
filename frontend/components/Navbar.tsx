@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { ShoppingBag, ShoppingCart, User, Search, Menu, LogOut, Package, ChevronDown } from "lucide-react";
+import { ShoppingBag, ShoppingCart, User, Search, Menu, LogOut, Package, ChevronDown, X, ChevronRight } from "lucide-react";
 import { useCartStore } from "@/app/store/cartStore";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -86,6 +86,47 @@ const Navbar = () => {
   const [showMenu, setShowMenu] = useState(false);
   const megaMenuRef = useRef<HTMLDivElement>(null);
 
+  // Mobile drawer
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerExpanded, setDrawerExpanded] = useState<string | null>(null);
+
+  // Search history (localStorage)
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const loadHistory = () => {
+    try {
+      const raw = localStorage.getItem("search-history");
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch { return []; }
+  };
+
+  const saveToHistory = (q: string) => {
+    const trimmed = q.trim();
+    if (!trimmed) return;
+    const prev = loadHistory().filter(h => h !== trimmed);
+    const next = [trimmed, ...prev].slice(0, 5);
+    localStorage.setItem("search-history", JSON.stringify(next));
+    setSearchHistory(next);
+  };
+
+  // Highlight matching text in result names
+  const highlight = (text: string, query: string) => {
+    if (!query.trim()) return <>{text}</>;
+    const words = query.trim().split(/\s+/).filter(Boolean);
+    const pattern = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+    const parts = text.split(pattern);
+    return (
+      <>
+        {parts.map((part, i) =>
+          pattern.test(part)
+            ? <mark key={i} className="bg-[#F8C37C]/30 text-black rounded-sm not-italic">{part}</mark>
+            : <span key={i}>{part}</span>
+        )}
+      </>
+    );
+  };
+
   // Cart
   const { openCart, getTotalItems } = useCartStore();
 
@@ -145,6 +186,7 @@ const Navbar = () => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setShowMenu(false);
+        setShowHistory(false);
         searchInputRef.current?.blur();
       }
     };
@@ -155,6 +197,7 @@ const Navbar = () => {
       const clickedInsideInput = searchInputRef.current?.contains(target);
       if (!clickedInsideMenu && !clickedInsideInput) {
         setShowMenu(false);
+        setShowHistory(false);
       }
     };
 
@@ -179,14 +222,31 @@ const Navbar = () => {
 
   const handleSearchSubmit = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && searchQuery.trim()) {
+      saveToHistory(searchQuery.trim());
       setShowMenu(false);
+      setShowHistory(false);
       router.push(`/catalog?search=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery("");
     }
   };
 
+  const handleSearchFocus = () => {
+    if (!searchQuery.trim()) {
+      const h = loadHistory();
+      setSearchHistory(h);
+      if (h.length > 0) setShowHistory(true);
+    }
+  };
+
+  const handleHistoryClick = (q: string) => {
+    saveToHistory(q);
+    setShowHistory(false);
+    router.push(`/catalog?search=${encodeURIComponent(q)}`);
+  };
+
   const handleResultClick = useCallback(() => {
     setShowMenu(false);
+    setShowHistory(false);
     setSearchQuery("");
   }, []);
 
@@ -211,6 +271,7 @@ const Navbar = () => {
   };
 
   return (
+    <>
     <header
       className={`fixed top-0 w-full z-50 flex flex-col transition-transform duration-300 ease-in-out ${isHidden
         ? "-translate-y-full"
@@ -279,12 +340,11 @@ const Navbar = () => {
                   <div
                     onMouseEnter={() => openDropdown(key)}
                     onMouseLeave={closeDropdown}
-                    className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-52 rounded-xl border border-white/10 shadow-2xl z-[200] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
-                    style={{ background: 'rgb(var(--navbar-bg))' }}
+                    className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-52 rounded-xl border border-th-border/10 shadow-2xl z-[200] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 bg-theme-card"
                   >
                     {/* Header del dropdown */}
-                    <div className="px-4 py-3 border-b border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{label}</p>
+                    <div className="px-4 py-3 border-b border-th-border/10">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-th-secondary">{label}</p>
                     </div>
 
                     {/* Items */}
@@ -294,12 +354,12 @@ const Navbar = () => {
                           key={sub.label}
                           href={buildDropdownUrl(key, sub)}
                           onClick={() => setActiveDropdown(null)}
-                          className="group flex flex-col gap-0.5 px-4 py-2.5 hover:bg-white/5 transition-colors duration-150"
+                          className="group flex flex-col gap-0.5 px-4 py-2.5 hover:bg-theme-surface transition-colors duration-150"
                         >
-                          <span className="text-sm font-bold text-white group-hover:text-accent transition-colors duration-150">
+                          <span className="text-sm font-bold text-th-primary group-hover:text-accent transition-colors duration-150">
                             {sub.label}
                           </span>
-                          <span className="text-[11px] text-white/40 group-hover:text-white/60 transition-colors duration-150">
+                          <span className="text-[11px] text-th-secondary group-hover:text-th-secondary/80 transition-colors duration-150">
                             {sub.description}
                           </span>
                         </Link>
@@ -307,11 +367,11 @@ const Navbar = () => {
                     </div>
 
                     {/* Ver todo */}
-                    <div className="border-t border-white/10 px-4 py-2.5">
+                    <div className="border-t border-th-border/10 px-4 py-2.5">
                       <Link
                         href={`/catalog?genders=${GENDER_MAP[key]}`}
                         onClick={() => setActiveDropdown(null)}
-                        className="text-[11px] font-bold uppercase tracking-widest text-white/50 hover:text-accent transition-colors duration-150"
+                        className="text-[11px] font-bold uppercase tracking-widest text-th-secondary hover:text-accent transition-colors duration-150"
                       >
                         Ver todo →
                       </Link>
@@ -340,9 +400,12 @@ const Navbar = () => {
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (e.target.value.trim()) setShowHistory(false);
+                }}
                 onKeyDown={handleSearchSubmit}
-                onFocus={() => { if (instantResults.length > 0) setShowMenu(true); }}
+                onFocus={handleSearchFocus}
                 placeholder="Buscar"
                 className={`w-40 lg:w-48 text-sm py-2 pl-9 pr-3 rounded-full outline-none transition-colors ${solid
                     ? "bg-theme-surface text-th-primary placeholder:text-th-secondary/50"
@@ -352,10 +415,10 @@ const Navbar = () => {
             </div>
 
             {/* Menú de usuario */}
-            <div className="relative" ref={userMenuRef}>
+            <div className="relative flex items-center" ref={userMenuRef}>
               <button
                 onClick={() => setUserMenuOpen((v) => !v)}
-                className="hover:text-accent transition-colors relative"
+                className="inline-flex items-center hover:text-accent transition-colors relative"
                 aria-label="Mi cuenta"
               >
                 <User className="w-5 h-5" />
@@ -365,19 +428,19 @@ const Navbar = () => {
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 top-full mt-3 w-52 bg-white text-black rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[200] animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 top-full mt-3 w-52 bg-theme-card text-th-primary rounded-2xl shadow-2xl border border-th-border/10 overflow-hidden z-[200] animate-in fade-in slide-in-from-top-2 duration-150">
                   {user ? (
                     <>
-                      <div className="px-4 py-3 border-b border-gray-100">
-                        <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Sesión iniciada</p>
+                      <div className="px-4 py-3 border-b border-th-border/10">
+                        <p className="text-xs font-bold uppercase tracking-widest text-th-secondary">Sesión iniciada</p>
                         <p className="text-sm font-medium truncate mt-0.5">{user.name ?? user.email}</p>
                       </div>
                       <Link
                         href="/account"
                         onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-theme-surface transition-colors"
                       >
-                        <Package className="w-4 h-4 text-gray-500" />
+                        <Package className="w-4 h-4 text-th-secondary" />
                         Mi cuenta y pedidos
                       </Link>
                       <button
@@ -390,20 +453,20 @@ const Navbar = () => {
                     </>
                   ) : (
                     <>
-                      <div className="px-4 py-3 border-b border-gray-100">
-                        <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Cuenta</p>
+                      <div className="px-4 py-3 border-b border-th-border/10">
+                        <p className="text-xs font-bold uppercase tracking-widest text-th-secondary">Cuenta</p>
                       </div>
                       <Link
                         href="/login"
                         onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm font-bold hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-bold hover:bg-theme-surface transition-colors"
                       >
                         Iniciar sesión
                       </Link>
                       <Link
                         href="/register"
                         onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50 transition-colors text-gray-600"
+                        className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-theme-surface transition-colors text-th-secondary"
                       >
                         Crear cuenta
                       </Link>
@@ -414,7 +477,7 @@ const Navbar = () => {
             </div>
 
             {/* CARRITO */}
-            <button onClick={openCart} className="relative hover:text-accent transition-colors">
+            <button onClick={openCart} className="relative inline-flex items-center hover:text-accent transition-colors">
               {mounted && getTotalItems() > 0
                 ? <ShoppingCart className="w-5 h-5" />
                 : <ShoppingBag className="w-5 h-5" />
@@ -428,13 +491,43 @@ const Navbar = () => {
               </span>
             </button>
 
-            <button className="md:hidden"><Menu className="w-6 h-6" /></button>
+            <button
+              className="md:hidden"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Abrir menú"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
           </div>
 
         </div>
       </div>
 
-      {/* ── 3. MEGA-MENU (Full-width, estilo Nike) ── */}
+      {/* ── 3a. HISTORIAL de búsquedas ── */}
+      {showHistory && searchHistory.length > 0 && !showMenu && (
+        <div
+          ref={megaMenuRef}
+          className="absolute top-full inset-x-0 w-full bg-white text-black shadow-2xl z-[100] border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200"
+        >
+          <div className="container mx-auto px-8 py-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Búsquedas recientes</p>
+            <div className="flex flex-wrap gap-2">
+              {searchHistory.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => handleHistoryClick(q)}
+                  className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+                >
+                  <Search className="w-3 h-3 text-gray-400" />
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 3b. MEGA-MENU de resultados ── */}
       {showMenu && instantResults.length > 0 && (
         <div
           ref={megaMenuRef}
@@ -466,7 +559,9 @@ const Navbar = () => {
 
                   {/* Textos */}
                   <div className="flex flex-col">
-                    <h3 className="text-sm font-bold text-black truncate capitalize">{item.name.toLowerCase()}</h3>
+                    <h3 className="text-sm font-bold text-black truncate capitalize">
+                      {highlight(item.name.toLowerCase(), searchQuery)}
+                    </h3>
                     <p className="text-xs text-gray-500 truncate capitalize">
                       {item.clubName || item.categoryName || "Jersey Oficial"}
                     </p>
@@ -492,6 +587,181 @@ const Navbar = () => {
         </div>
       )}
     </header>
+
+      {/* ── DRAWER MÓVIL — fuera del <header> para evitar stacking context ── */}
+
+      {/* Overlay */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 bg-black/70 z-[300] md:hidden backdrop-blur-[2px]"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
+      {/* Panel */}
+      <div className={`fixed top-0 left-0 h-full w-[82vw] max-w-xs bg-white z-[310] flex flex-col shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+
+        {/* Header del drawer */}
+        <div className="flex items-center justify-between px-5 py-4 bg-black">
+          <span className="text-xl font-black italic tracking-tighter">
+            <span className="text-white">JERSEYS</span>
+            <span className="text-accent">RAW</span>
+          </span>
+          <button onClick={() => setDrawerOpen(false)} aria-label="Cerrar menú" className="text-white/70 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Buscador */}
+        <div className="px-4 py-3 bg-gray-950 border-b border-white/10">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar jerseys..."
+              className="w-full pl-9 pr-4 py-2.5 text-sm bg-white/10 border border-white/10 rounded-lg outline-none focus:border-white/30 text-white placeholder:text-white/40 transition-colors"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                  saveToHistory(e.currentTarget.value.trim());
+                  setDrawerOpen(false);
+                  router.push(`/catalog?search=${encodeURIComponent(e.currentTarget.value.trim())}`);
+                }
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Navegación */}
+        <nav className="flex-1 overflow-y-auto divide-y divide-gray-100">
+
+          {/* Categorías por género */}
+          {['hombres', 'mujeres', 'ninos'].map((key) => {
+            const label = key === 'hombres' ? 'Hombres' : key === 'mujeres' ? 'Mujeres' : 'Niños';
+            const audience = GENDER_MAP[key];
+            const isOpen = drawerExpanded === key;
+            return (
+              <div key={key}>
+                <button
+                  onClick={() => setDrawerExpanded(isOpen ? null : key)}
+                  className="w-full flex items-center justify-between px-5 py-4 text-sm font-bold text-gray-900 uppercase tracking-widest hover:bg-gray-50 transition-colors"
+                >
+                  {label}
+                  <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+                </button>
+                {isOpen && (
+                  <div className="bg-gray-50">
+                    <Link
+                      href={`/catalog?audience=${audience}`}
+                      onClick={() => setDrawerOpen(false)}
+                      className="flex items-center px-8 py-3 text-xs font-bold uppercase tracking-wider text-black hover:text-accent transition-colors"
+                    >
+                      Ver todo {label}
+                    </Link>
+                    {DROPDOWN_SUBCATEGORIES.map((sub) => (
+                      <Link
+                        key={sub.label}
+                        href={`/catalog?audience=${audience}${sub.tagFilter ? `&tag=${sub.tagFilter}` : ''}${sub.sort ? `&sort=${sub.sort}` : ''}`}
+                        onClick={() => setDrawerOpen(false)}
+                        className="flex items-center px-8 py-2.5 text-sm text-gray-500 hover:text-black transition-colors"
+                      >
+                        {sub.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Outlet */}
+          <Link
+            href="/catalog?tags=outlet"
+            onClick={() => setDrawerOpen(false)}
+            className="flex items-center px-5 py-4 text-sm font-bold uppercase tracking-widest text-red-500 hover:bg-red-50 transition-colors"
+          >
+            Outlet
+          </Link>
+
+          {/* Catálogo completo */}
+          <Link
+            href="/catalog"
+            onClick={() => setDrawerOpen(false)}
+            className="flex items-center px-5 py-4 text-sm font-bold uppercase tracking-widest text-gray-900 hover:bg-gray-50 transition-colors"
+          >
+            Catálogo completo
+          </Link>
+
+          {/* Rastrear pedido */}
+          <Link
+            href="/tracking"
+            onClick={() => setDrawerOpen(false)}
+            className="flex items-center px-5 py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Rastrear pedido
+          </Link>
+
+          {/* Reseñas */}
+          <Link
+            href="/reviews"
+            onClick={() => setDrawerOpen(false)}
+            className="flex items-center px-5 py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Reseñas
+          </Link>
+        </nav>
+
+        {/* Footer del drawer — cuenta */}
+        <div className="border-t-2 border-gray-100 px-4 py-4 space-y-2 bg-white">
+          {user ? (
+            <>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 px-1">
+                Hola, {user.name?.split(' ')[0] ?? user.email}
+              </p>
+              <Link
+                href="/account"
+                onClick={() => setDrawerOpen(false)}
+                className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                <Package className="w-4 h-4 text-gray-500" />
+                Mis pedidos
+              </Link>
+              <Link
+                href="/account/settings"
+                onClick={() => setDrawerOpen(false)}
+                className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                <User className="w-4 h-4 text-gray-500" />
+                Mi perfil
+              </Link>
+              <button
+                onClick={() => { logout(); setDrawerOpen(false); router.push('/'); }}
+                className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Cerrar sesión
+              </button>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <Link
+                href="/login"
+                onClick={() => setDrawerOpen(false)}
+                className="block w-full text-center bg-black text-white text-sm font-bold uppercase tracking-widest rounded-xl py-3 hover:bg-gray-900 transition-colors"
+              >
+                Iniciar sesión
+              </Link>
+              <Link
+                href="/register"
+                onClick={() => setDrawerOpen(false)}
+                className="block w-full text-center border border-gray-300 text-gray-700 text-sm font-bold uppercase tracking-widest rounded-xl py-3 hover:bg-gray-50 transition-colors"
+              >
+                Crear cuenta
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 };
 

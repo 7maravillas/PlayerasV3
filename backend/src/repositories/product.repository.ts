@@ -1,5 +1,6 @@
 // backend/src/repositories/product.repository.ts
 import { prisma } from '../lib/prisma.js';
+import { Prisma as PrismaClient } from '@prisma/client';
 import { decodeCursor, encodeCursor } from '../lib/pagination.js';
 import type {
   ProductWithRelations,
@@ -63,44 +64,46 @@ export class ProductRepository {
       (where as Record<string, unknown>).variants = { some: variantFilters };
     }
 
-    // --- Búsqueda sin acentos (sin extensiones, usando translate) -------------
+    // --- Búsqueda multi-palabra sin acentos (usando translate) ----------------
     if (search && search.trim().length > 0) {
-      // Mapeo básico de acentos comunes a ASCII
       const FROM = 'ÁÉÍÓÚáéíóúÄËÏÖÜäëïöüÀÈÌÒÙàèìòùÇçÑñ';
-      const TO = 'AEIOUaeiouAEIOUaeiouAEIOUaeiouCcNn';
+      const TO   = 'AEIOUaeiouAEIOUaeiouAEIOUaeiouCcNn';
 
-      // Patrón LIKE, p.ej. "%mexico%"
-      const q = `%${search.toLowerCase()}%`;
+      // Dividir la query en palabras individuales (máx. 5)
+      const words = search.trim().split(/\s+/).filter(Boolean).slice(0, 5);
 
-      // Obtenemos IDs de productos que matchean por nombre/descr/club ignorando acentos
+      // Para cada palabra construimos una condición OR entre nombre/descripción/club
+      const wordConditions = words.map(word => {
+        const q = `%${word.toLowerCase()}%`;
+        return PrismaClient.sql`(
+          lower(translate(p.name, ${FROM}, ${TO})) LIKE lower(translate(${q}, ${FROM}, ${TO}))
+          OR lower(translate(p.description, ${FROM}, ${TO})) LIKE lower(translate(${q}, ${FROM}, ${TO}))
+          OR lower(translate(c.name, ${FROM}, ${TO})) LIKE lower(translate(${q}, ${FROM}, ${TO}))
+        )`;
+      });
+
+      // Todas las palabras deben estar presentes (AND)
+      const combinedWhere = wordConditions.reduce((acc, cond) =>
+        PrismaClient.sql`${acc} AND ${cond}`
+      );
+
       const matched = await prisma.$queryRaw<{ id: string }[]>`
         SELECT p.id
         FROM "Product" p
         LEFT JOIN "Club" c ON c.id = p."clubId"
-        WHERE
-          lower(translate(p.name, ${FROM}, ${TO})) LIKE lower(translate(${q}, ${FROM}, ${TO}))
-          OR lower(translate(p.description, ${FROM}, ${TO})) LIKE lower(translate(${q}, ${FROM}, ${TO}))
-          OR lower(translate(c.name, ${FROM}, ${TO})) LIKE lower(translate(${q}, ${FROM}, ${TO}))
+        WHERE ${combinedWhere}
         LIMIT 1000
       `;
 
       const matchedIds = matched.map(r => r.id);
 
-      // Si no hay matches por texto, devolvemos vacío temprano (respeta filtros comunes)
       if (matchedIds.length === 0) {
         return {
           items: [],
-          pagination: {
-            nextCursor: null,
-            hasMore: false,
-            count: 0,
-            limit,
-            total: 0,
-          },
+          pagination: { nextCursor: null, hasMore: false, count: 0, limit, total: 0 },
         };
       }
 
-      // Combinamos la búsqueda por texto con el resto de filtros usando id IN (...)
       (where as Record<string, unknown>).id = { in: matchedIds };
     }
     // --------------------------------------------------------------------------
