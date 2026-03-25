@@ -36,18 +36,17 @@ const STATUS_FLOW = ["PENDING_PAYMENT", "PAID", "PROCESSING", "SHIPPED", "DELIVE
 /** Determina el tipo de fulfillment de una orden según sus items */
 function getOrderFulfillmentType(items: any[]): "LOCAL" | "DROPSHIPPING" | "MIXED" {
     if (!items || items.length === 0) return "LOCAL";
-    const types = items.map(i => i.product?.fulfillmentType ?? "LOCAL");
-    const hasDropship = types.some(t => t === "DROPSHIPPING");
-    const hasLocal = types.some(t => t === "LOCAL");
+    const hasDropship = items.some(i => i.isDropshippable === true);
+    const hasLocal = items.some(i => i.isDropshippable === false);
     if (hasDropship && hasLocal) return "MIXED";
     if (hasDropship) return "DROPSHIPPING";
     return "LOCAL";
 }
 
 const FULFILLMENT_BADGE: Record<string, { label: string; className: string }> = {
-    LOCAL:       { label: "📦 Local",       className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    DROPSHIPPING:{ label: "✈️ Dropshipping", className: "bg-sky-50 text-sky-700 border-sky-200" },
-    MIXED:       { label: "🔀 Mixto",        className: "bg-violet-50 text-violet-700 border-violet-200" },
+    LOCAL:       { label: "Local",       className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    DROPSHIPPING:{ label: "Dropshipping", className: "bg-sky-50 text-sky-700 border-sky-200" },
+    MIXED:       { label: "Mixto",        className: "bg-violet-50 text-violet-700 border-violet-200" },
 };
 
 export default function AdminOrdersPage() {
@@ -203,7 +202,7 @@ export default function AdminOrdersPage() {
             {/* FILTROS — FULFILLMENT (logística) */}
             <div className="flex gap-2 items-center">
                 <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest mr-1">Logística:</span>
-                {([["", "Todas"], ["LOCAL", "📦 Local"], ["DROPSHIPPING", "✈️ Dropshipping"]] as const).map(([key, label]) => (
+                {([["", "Todas"], ["LOCAL", "Local"], ["DROPSHIPPING", "Dropshipping"]] as const).map(([key, label]) => (
                     <button
                         key={key}
                         onClick={() => setFulfillmentFilter(key)}
@@ -269,7 +268,7 @@ export default function AdminOrdersPage() {
                                         {/* Items */}
                                         <div className="space-y-2">
                                             {order.items.map((item: any, i: number) => {
-                                                const itemFulfill = item.product?.fulfillmentType ?? "LOCAL";
+                                                const itemFulfill = item.isDropshippable ? "DROPSHIPPING" : "LOCAL";
                                                 return (
                                                     <div key={i} className="flex items-center gap-3 text-sm">
                                                         {item.productImageUrl && (
@@ -282,11 +281,11 @@ export default function AdminOrdersPage() {
                                                             <p className="font-bold text-slate-700">{item.productName}</p>
                                                             <p className="text-xs text-slate-400">
                                                                 {item.variantSize && `Talla: ${item.variantSize}`} × {item.quantity}
-                                                                {item.isPersonalized && ` · ✨ ${item.customName} #${item.customNumber}`}
+                                                                {item.isPersonalized && ` · Personalizado: ${item.customName} #${item.customNumber}`}
                                                             </p>
                                                         </div>
                                                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${itemFulfill === "DROPSHIPPING" ? "bg-sky-50 text-sky-600 border-sky-200" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}>
-                                                            {itemFulfill === "DROPSHIPPING" ? "✈️" : "📦"}
+                                                            {itemFulfill === "DROPSHIPPING" ? "Drop" : "Stock"}
                                                         </span>
                                                         <span className="font-bold text-slate-600">{formatPrice(item.totalCents)}</span>
                                                     </div>

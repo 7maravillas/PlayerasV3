@@ -9,6 +9,8 @@ import {
   PenLine,
   Send,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   CheckCircle,
   SlidersHorizontal,
@@ -121,6 +123,29 @@ function resolveImg(raw: string | undefined | null, w = 300): string {
 }
 
 // ══════════════════════════════════════════════════════════════
+// RELEVANCIA
+// ══════════════════════════════════════════════════════════════
+
+const PAGE_SIZE = 8;
+
+/** Puntuación de relevancia: foto buena + comentario escrito + 5 estrellas */
+function relevanceScore(r: Review): number {
+  let score = 0;
+  // Rating: 5 estrellas = 5pts, 4 estrellas = 3pts, 3 estrellas = 1pt, menos = 0
+  if (r.rating === 5) score += 5;
+  else if (r.rating === 4) score += 3;
+  else if (r.rating === 3) score += 1;
+  // Tiene foto: +4
+  if (r.image) score += 4;
+  // Calidad del comentario por longitud
+  const len = (r.comment || "").trim().length;
+  if (len >= 150) score += 3;
+  else if (len >= 80) score += 2;
+  else if (len >= 30) score += 1;
+  return score;
+}
+
+// ══════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ══════════════════════════════════════════════════════════════
 
@@ -132,8 +157,10 @@ export default function ReviewsSection({
   const [stats, setStats] = useState<ReviewStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<number | null>(null);
-  const [sortBy, setSortBy] = useState<"recent" | "highest" | "lowest" | "photo">("recent");
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [sortBy, setSortBy] = useState<"relevance" | "recent" | "highest" | "lowest" | "photo">("relevance");
+  const [showStarsDropdown, setShowStarsDropdown] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [page, setPage] = useState(0);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -151,6 +178,7 @@ export default function ReviewsSection({
 
   // ── Fetch reviews + stats ──
   useEffect(() => {
+    setPage(0);
     const params = activeFilter ? `?stars=${activeFilter}` : "";
     Promise.all([
       fetch(`${API_BASE}/api/v1/reviews${params}`).then((r) => r.json()),
@@ -209,8 +237,11 @@ export default function ReviewsSection({
   };
 
   const sortedReviews = useMemo(() => {
+    setPage(0);
     const copy = [...reviews];
     switch (sortBy) {
+      case "relevance":
+        return copy.sort((a, b) => relevanceScore(b) - relevanceScore(a));
       case "highest":
         return copy.sort(
           (a, b) => b.rating - a.rating || +new Date(b.createdAt) - +new Date(a.createdAt)
@@ -232,34 +263,74 @@ export default function ReviewsSection({
     }
   }, [reviews, sortBy]);
 
+  const totalPages = Math.ceil(sortedReviews.length / PAGE_SIZE);
+  const pageReviews = sortedReviews.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   if (loading) return null;
-  if (!stats || stats.total === 0) return null;
+  if (!stats || !stats.total) return null;
 
   return (
     <section className="mt-16 mb-8 px-4 sm:px-6 lg:px-8 max-w-[1400px] mx-auto">
 
+      {/* Overlay para cerrar dropdowns al hacer click fuera */}
+      {(showStarsDropdown || showSortDropdown) && (
+        <div className="fixed inset-0 z-20" onClick={() => { setShowStarsDropdown(false); setShowSortDropdown(false); }} />
+      )}
+
       {/* ═══ HEADER BAR ═══ */}
       <div className="flex items-center justify-between mb-6">
-        {/* Left: rating summary */}
+
+        {/* Left: estrellas + dropdown de filtro por estrellas */}
         <div className="flex items-center gap-3">
           <Stars rating={Math.round(stats.average)} size={18} />
-          <button
-            onClick={() => setShowFilterPanel(!showFilterPanel)}
-            className="flex items-center gap-1 group"
-          >
-            <span className="text-sm font-semibold text-neutral-800 group-hover:underline underline-offset-2 transition-all">
-              {stats.total.toLocaleString()} Reseñas
-            </span>
-            <ChevronDown
-              size={14}
-              className={`text-neutral-500 transition-transform ${
-                showFilterPanel ? "rotate-180" : ""
-              }`}
-            />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => { setShowStarsDropdown(v => !v); setShowSortDropdown(false); }}
+              className="flex items-center gap-1 group"
+            >
+              <span className="text-sm font-semibold text-neutral-800 group-hover:underline underline-offset-2 transition-all flex items-center gap-1">
+                {stats.total.toLocaleString()} Reseñas
+                {activeFilter && <span className="ml-1 text-amber-500 flex items-center gap-0.5">· {activeFilter}<Star size={12} fill="currentColor" /></span>}
+              </span>
+              <ChevronDown size={14} className={`text-neutral-500 transition-transform ${showStarsDropdown ? "rotate-180" : ""}`} />
+            </button>
+
+            {showStarsDropdown && (
+              <div className="absolute left-0 top-full mt-2 z-30 bg-white border border-neutral-200 rounded-xl shadow-lg p-3 min-w-[200px]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">Filtrar por estrellas</span>
+                  {activeFilter && (
+                    <button onClick={() => { setActiveFilter(null); setShowStarsDropdown(false); }} className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-700 transition-colors">
+                      <X size={11} /> Quitar
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const count = stats.byRating[star] || 0;
+                    const isActive = activeFilter === star;
+                    return (
+                      <button
+                        key={star}
+                        onClick={() => { setActiveFilter(isActive ? null : star); setShowStarsDropdown(false); }}
+                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${isActive ? "bg-neutral-900 text-white" : "hover:bg-neutral-50 text-neutral-700"}`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          {[1,2,3,4,5].map(i => (
+                            <Star key={i} size={10} fill={i <= star ? "currentColor" : "none"} className={i <= star ? "text-amber-400" : "text-neutral-300"} strokeWidth={i <= star ? 0 : 1.5} />
+                          ))}
+                        </div>
+                        <span className="opacity-60">({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right: actions */}
+        {/* Right: escribe reseña + dropdown ordenar */}
         <div className="flex items-center gap-2">
           <button
             onClick={handleOpenForm}
@@ -268,103 +339,50 @@ export default function ReviewsSection({
             <PenLine size={14} />
             Escribe una reseña
           </button>
-          <button
-            onClick={() => setShowFilterPanel(!showFilterPanel)}
-            className={`p-2 rounded-full border transition-colors ${
-              showFilterPanel || activeFilter || sortBy !== "recent"
-                ? "border-neutral-900 bg-neutral-900 text-white"
-                : "border-neutral-300 text-neutral-500 hover:border-neutral-400"
-            }`}
-          >
-            <SlidersHorizontal size={15} />
-          </button>
+
+          <div className="relative">
+            <button
+              onClick={() => { setShowSortDropdown(v => !v); setShowStarsDropdown(false); }}
+              className={`p-2 rounded-full border transition-colors ${showSortDropdown || sortBy !== "relevance" ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 text-neutral-500 hover:border-neutral-400"}`}
+              aria-label="Ordenar reseñas"
+            >
+              <SlidersHorizontal size={15} />
+            </button>
+
+            {showSortDropdown && (
+              <div className="absolute right-0 top-full mt-2 z-30 bg-white border border-neutral-200 rounded-xl shadow-lg p-3 min-w-[180px]">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <ArrowDownUp size={11} className="text-neutral-400" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">Ordenar por</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  {([
+                    { key: "relevance", label: "Relevancia" },
+                    { key: "recent",    label: "Más recientes" },
+                    { key: "highest",   label: "Más altas" },
+                    { key: "lowest",    label: "Más bajas" },
+                    { key: "photo",     label: "Con foto" },
+                  ] as const).map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => { setSortBy(key); setShowSortDropdown(false); }}
+                      className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${sortBy === key ? "bg-neutral-900 text-white" : "hover:bg-neutral-50 text-neutral-700"}`}
+                    >
+                      {label}
+                      {sortBy === key && <span className="text-[10px] opacity-60">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* ═══ FILTER PANEL ═══ */}
-      {showFilterPanel && (
-        <div className="mb-7 p-4 bg-neutral-50 rounded-xl border border-neutral-200/60 space-y-4">
-          {/* Estrellas */}
-          <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">
-                Filtrar por estrellas
-              </span>
-              {activeFilter && (
-                <button
-                  onClick={() => setActiveFilter(null)}
-                  className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-700 transition-colors"
-                >
-                  <X size={11} /> Quitar
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {[5, 4, 3, 2, 1].map((star) => {
-                const count = stats.byRating[star] || 0;
-                const isActive = activeFilter === star;
-                return (
-                  <button
-                    key={star}
-                    onClick={() => setActiveFilter(isActive ? null : star)}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                      isActive
-                        ? "bg-neutral-900 text-white"
-                        : "bg-white border border-neutral-200 text-neutral-600 hover:border-neutral-400"
-                    }`}
-                  >
-                    {star}
-                    <Star
-                      size={10}
-                      fill="currentColor"
-                      className="text-amber-400"
-                      strokeWidth={0}
-                    />
-                    <span className="opacity-60">({count})</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Ordenar */}
-          <div>
-            <div className="flex items-center gap-1.5 mb-2.5">
-              <ArrowDownUp size={11} className="text-neutral-400" />
-              <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">
-                Ordenar por
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {(
-                [
-                  { key: "recent", label: "Más recientes" },
-                  { key: "highest", label: "Más altas" },
-                  { key: "lowest", label: "Más bajas" },
-                  { key: "photo", label: "Con foto" },
-                ] as const
-              ).map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setSortBy(key)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                    sortBy === key
-                      ? "bg-neutral-900 text-white"
-                      : "bg-white border border-neutral-200 text-neutral-600 hover:border-neutral-400"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ═══ MASONRY GRID — Social Feed Style ═══ */}
       {sortedReviews.length > 0 ? (
         <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-3">
-          {sortedReviews.map((review) => (
+          {pageReviews.map((review) => (
             <article
               key={review.id}
               className="break-inside-avoid mb-3 bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:shadow-md transition-shadow duration-200"
@@ -450,7 +468,48 @@ export default function ReviewsSection({
             </article>
           ))}
         </div>
-      ) : (
+      ) : null}
+
+      {/* ═══ PAGINACIÓN ═══ */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-8">
+          <button
+            onClick={() => { setPage(p => p - 1); window.scrollTo({ top: (document.querySelector('section')?.offsetTop ?? 0) - 80, behavior: 'smooth' }); }}
+            disabled={page === 0}
+            className="p-2 rounded-full border border-neutral-200 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Página anterior"
+          >
+            <ChevronLeft size={16} />
+          </button>
+
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => { setPage(i); window.scrollTo({ top: (document.querySelector('section')?.offsetTop ?? 0) - 80, behavior: 'smooth' }); }}
+                className={`w-7 h-7 rounded-full text-xs font-semibold transition-all ${
+                  i === page
+                    ? "bg-neutral-900 text-white"
+                    : "text-neutral-400 hover:text-neutral-900"
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => { setPage(p => p + 1); window.scrollTo({ top: (document.querySelector('section')?.offsetTop ?? 0) - 80, behavior: 'smooth' }); }}
+            disabled={page === totalPages - 1}
+            className="p-2 rounded-full border border-neutral-200 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Página siguiente"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
+
+      {sortedReviews.length === 0 && (
         <div className="text-center py-16">
           <Star size={36} className="text-neutral-200 mx-auto mb-3" />
           <p className="text-sm text-neutral-400">

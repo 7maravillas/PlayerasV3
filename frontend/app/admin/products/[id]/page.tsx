@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Upload, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Upload, Loader2, Plus, Trash2, Package, Zap, Truck, Palette, Star } from "lucide-react";
 import Link from "next/link";
 import ImageUploadWidget from "@/components/admin/ImageUploadWidget";
 import { api } from "@/lib/api";
@@ -42,6 +42,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     gender: "HOMBRE",
     categoryId: "",
     globalAllowsNameNumber: true,
+    earnPoints: true,
+    redeemMaxQty: "" as string,
   });
 
   const [variants, setVariants] = useState<VariantRow[]>([]);
@@ -66,6 +68,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           globalAllowsNameNumber: data.variants?.length > 0
             ? data.variants.every((v: any) => v.allowsNameNumber)
             : true,
+          earnPoints: data.earnPoints ?? true,
+          redeemMaxQty: data.redeemMaxQty != null ? String(data.redeemMaxQty) : "",
         });
 
         // Cargar variantes existentes
@@ -133,6 +137,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         price: parseFloat(formData.price),
         compareAtPrice: formData.compareAtPrice ? parseFloat(formData.compareAtPrice) : null,
         images: formData.images,
+        earnPoints: formData.earnPoints,
+        redeemMaxQty: formData.redeemMaxQty === "" ? null : parseInt(formData.redeemMaxQty as string),
       };
 
       // Incluir variantes si existen
@@ -155,6 +161,11 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
       const res = await api.put(`/api/v1/products/${params.id}`, payload, { auth: true });
       // api.put already throws on !ok
+
+      // Revalidate the cache on the server
+      await fetch(`/api/revalidate?path=/admin/products&path=/admin/products/[id]`, {
+        method: 'POST',
+      }).catch(() => {}); // Ignore if revalidate endpoint doesn't exist
 
       router.push("/admin/products");
       router.refresh();
@@ -253,6 +264,38 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
             {!formData.globalAllowsNameNumber && (
               <p className="text-rose-500 text-xs mt-3 bg-rose-50 p-2 rounded-lg">⚠️ La personalización estará deshabilitada para todas las variantes de este producto.</p>
             )}
+          </div>
+
+          {/* ========== BLOQUE: RECOMPENSAS ========== */}
+          <div className="bg-white border border-amber-200 p-6 rounded-2xl shadow-sm space-y-4">
+            <h3 className="text-amber-600 font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+              <Star className="w-4 h-4 fill-current" /> Recompensas
+            </h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Acumula puntos al comprar</p>
+                <p className="text-xs text-slate-400">¿Esta compra genera puntos de recompensa?</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, earnPoints: !formData.earnPoints })}
+                className={`relative w-14 h-7 rounded-full transition-colors ${formData.earnPoints ? 'bg-amber-500' : 'bg-slate-200'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full transition-transform shadow ${formData.earnPoints ? 'translate-x-7' : ''}`} />
+              </button>
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Máx. unidades canjeables con puntos</label>
+              <input
+                type="number"
+                min={0}
+                value={formData.redeemMaxQty}
+                onChange={(e) => setFormData({ ...formData, redeemMaxQty: e.target.value })}
+                placeholder="Vacío = sin límite | 0 = no canjeable | 1 = máx 1"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-800 text-sm focus:border-amber-400 outline-none"
+              />
+              <p className="text-xs text-slate-400 mt-1">Vacío = ilimitado (jerseys). 1 = máx 1 con puntos (llaveros, balones).</p>
+            </div>
           </div>
 
           {/* ========== BLOQUE 5: VARIANTES DEL PRODUCTO ========== */}
@@ -398,10 +441,10 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
             <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-3">
               <h4 className="text-xs font-bold uppercase text-slate-400">Resumen</h4>
               <div className="text-xs text-slate-500 space-y-2">
-                <p>📦 <strong className="text-slate-700">{variants.length}</strong> variantes</p>
-                <p>⚡ <strong className="text-emerald-500">{variants.filter(v => v.stock > 0).length}</strong> con stock (Envío Rápido)</p>
-                <p>🚚 <strong className="text-slate-700">{variants.filter(v => v.stock === 0 && v.isDropshippable).length}</strong> dropshipping</p>
-                <p>🎨 <strong className="text-indigo-500">{formData.globalAllowsNameNumber ? 'Sí' : 'No'}</strong> personalizable</p>
+                <p className="flex items-center gap-2"><Package className="w-3.5 h-3.5 text-slate-400" /> <strong className="text-slate-700">{variants.length}</strong> variantes</p>
+                <p className="flex items-center gap-2"><Zap className="w-3.5 h-3.5 text-emerald-500" /> <strong className="text-emerald-500">{variants.filter(v => v.stock > 0).length}</strong> con stock</p>
+                <p className="flex items-center gap-2"><Truck className="w-3.5 h-3.5 text-slate-400" /> <strong className="text-slate-700">{variants.filter(v => v.stock === 0 && v.isDropshippable).length}</strong> dropshipping</p>
+                <p className="flex items-center gap-2"><Palette className="w-3.5 h-3.5 text-indigo-500" /> <strong className="text-indigo-500">{formData.globalAllowsNameNumber ? 'Sí' : 'No'}</strong> personalizable</p>
               </div>
             </div>
           )}

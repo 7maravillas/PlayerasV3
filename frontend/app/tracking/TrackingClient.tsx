@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import Link from "next/link";
 import {
@@ -323,6 +324,7 @@ function TrackingTimeline({ data }: { data: TrackingData }) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function TrackingClient() {
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<TrackingData | null>(null);
@@ -331,10 +333,15 @@ export default function TrackingClient() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Precargar número de rastreo desde URL si existe (ej: ?number=JR123456789)
+    const trackingNumber = searchParams.get("number");
+    if (trackingNumber) {
+      setQuery(trackingNumber);
+    }
+  }, [searchParams]);
 
-  async function handleTrack(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleTrack(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     const trimmed = query.trim();
     if (!trimmed) return;
 
@@ -351,6 +358,14 @@ export default function TrackingClient() {
       setLoading(false);
     }
   }
+
+  // Ejecutar tracking automáticamente si viene desde URL con número
+  useEffect(() => {
+    const trackingNumber = searchParams.get("number");
+    if (trackingNumber && mounted) {
+      handleTrack();
+    }
+  }, [mounted]);
 
   const currentStep = data ? getStep(data.status, data.subStatus, data.events) : 0;
   const progressPct = Math.round((currentStep / (STEPS.length - 1)) * 100);

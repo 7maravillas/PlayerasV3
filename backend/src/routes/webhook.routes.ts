@@ -6,6 +6,8 @@ import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { prisma } from '../lib/prisma.js';
 import { sendOrderConfirmationEmail, sendAdminOrderNotification } from '../lib/mailer.js';
+import { earnPoints, applyRedeem } from '../services/rewards.service.js';
+import { recordCouponUsage } from '../services/coupon.service.js';
 
 const router = Router();
 
@@ -93,6 +95,46 @@ router.post(
           sendAdminOrderNotification(paidOrder).catch((emailErr) => {
             console.error(`⚠️  Email de notificación admin fallido para orden ${orderNumber}:`, emailErr);
           });
+
+          // Acumular puntos si la orden tiene usuario registrado (fire-and-forget)
+          if (paidOrder.userId) {
+            const itemsForRewards = paidOrder.items.map((item: any) => ({
+              productId: item.productId,
+              unitPriceCents: item.unitPriceCents,
+              quantity: item.quantity,
+            }));
+            earnPoints(
+              paidOrder.userId,
+              paidOrder.id,
+              itemsForRewards,
+              `Orden ${orderNumber}`,
+            ).catch((err) => {
+              console.error(`⚠️  earnPoints fallido para orden ${orderNumber}:`, err);
+            });
+
+            // Descontar puntos canjeados (diferido desde creación de orden)
+            if (paidOrder.rewardPointsUsed > 0) {
+              applyRedeem(
+                paidOrder.userId,
+                paidOrder.rewardPointsUsed,
+                paidOrder.id,
+                `Canje en orden ${orderNumber}`,
+              ).catch((err) => {
+                console.error(`⚠️  applyRedeem fallido para orden ${orderNumber}:`, err);
+              });
+            }
+          }
+
+          // Registrar uso de cupón si hay uno
+          if (paidOrder.couponCode && paidOrder.couponDiscountCents > 0) {
+            recordCouponUsage(
+              paidOrder.couponCode,
+              paidOrder.id,
+              paidOrder.email,
+              paidOrder.couponDiscountCents,
+              paidOrder.userId ?? null,
+            ).catch((err: unknown) => console.error('⚠️ recordCouponUsage falló:', err));
+          }
 
           break;
         }

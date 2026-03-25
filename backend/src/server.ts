@@ -27,6 +27,10 @@ import analyticsRoutes from './routes/analytics.routes.js';
 import searchRoutes from './routes/search.routes.js';
 import shippingRoutes from './routes/shipping.routes.js';
 import trackingRoutes from './routes/tracking.routes.js';
+import rewardsRoutes from './routes/rewards.routes.js';
+import couponRoutes from './routes/coupon.routes.js';
+import stockRoutes from './routes/stock.routes.js';
+import crmRoutes from './routes/crm.routes.js';
 
 const app = express();
 
@@ -82,12 +86,16 @@ app.use('/api/v1', tagRoutes);
 app.use('/api/v1', categoryRoutes);
 app.use('/api/v1', seasonRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/admin/crm', crmRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1', couponRoutes);
 app.use('/api/v1', orderRoutes);
 app.use('/api/v1', reviewRoutes);
 app.use('/api/v1', analyticsRoutes);
 app.use('/api/v1', shippingRoutes);
 app.use('/api/v1', trackingRoutes);
+app.use('/api/v1', rewardsRoutes);
+app.use('/api/v1', stockRoutes);
 
 /* ─── Error handling ─── */
 app.use(errorHandler);

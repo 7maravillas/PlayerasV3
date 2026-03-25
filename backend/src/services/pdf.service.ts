@@ -193,6 +193,134 @@ export function generateOrderPDF(order: OrderData): Promise<Buffer> {
   });
 }
 
+// ─── PDF de inventario / stock ───────────────────────────────────────────────
+export interface StockVariantRow {
+  sku: string;
+  size: string;
+  color: string;
+  isDropshippable: boolean;
+  stock: number;
+  sold: number;
+  restocked: number;
+  initialStock: number;
+}
+
+export interface StockProductRow {
+  name: string;
+  variants: StockVariantRow[];
+}
+
+export function generateStockReportPDF(products: StockProductRow[]): Promise<Buffer> {
+  return buildPDF((doc) => {
+    const W = doc.page.width;
+    const today = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Barra dorada superior
+    doc.rect(0, 0, W, 6).fill(GOLD);
+
+    // Header
+    doc.font('Helvetica-Bold').fontSize(22).fillColor(BLACK).text('PLayera', 50, 22);
+    doc.font('Helvetica').fontSize(9).fillColor(GRAY).text('Reporte de Inventario', 50, 47);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(GOLD)
+      .text('INVENTARIO', 0, 22, { align: 'right', width: W - 50 });
+    doc.font('Helvetica').fontSize(9).fillColor(GRAY)
+      .text(`Generado: ${today}`, 0, 40, { align: 'right', width: W - 50 });
+
+    doc.moveTo(50, 68).lineTo(W - 50, 68).strokeColor(BORDER).lineWidth(1).stroke();
+
+    // Resumen global
+    const totalVariants = products.reduce((s, p) => s + p.variants.length, 0);
+    const totalStock    = products.reduce((s, p) => s + p.variants.reduce((sv, v) => sv + v.stock, 0), 0);
+    const totalSold     = products.reduce((s, p) => s + p.variants.reduce((sv, v) => sv + v.sold, 0), 0);
+    const outOfStock    = products.reduce((s, p) => s + p.variants.filter(v => !v.isDropshippable && v.stock === 0).length, 0);
+
+    const summaryY = 80;
+    const cards = [
+      { label: 'Productos',    value: String(products.length) },
+      { label: 'Variantes',    value: String(totalVariants) },
+      { label: 'Unidades disp.', value: String(totalStock) },
+      { label: 'Unid. vendidas', value: String(totalSold) },
+      { label: 'Sin stock',    value: String(outOfStock) },
+    ];
+    const cardW = (W - 100) / 5 - 6;
+    cards.forEach((card, i) => {
+      const cx = 50 + i * (cardW + 7.5);
+      doc.rect(cx, summaryY, cardW, 42).fill(LIGHT);
+      doc.font('Helvetica-Bold').fontSize(6.5).fillColor(GRAY)
+        .text(card.label.toUpperCase(), cx + 6, summaryY + 7, { width: cardW - 12 });
+      const isAlert = card.label === 'Sin stock' && outOfStock > 0;
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(isAlert ? '#EF4444' : BLACK)
+        .text(card.value, cx + 6, summaryY + 18, { width: cardW - 12 });
+    });
+
+    // Tabla de variantes
+    const tableTop = summaryY + 58;
+    const COLS = { product: 50, sku: 195, size: 285, color: 330, initial: 385, sold: 430, restock: 475, current: 510 };
+
+    const drawHeader = (y: number) => {
+      doc.rect(50, y, W - 100, 18).fill(BLACK);
+      doc.font('Helvetica-Bold').fontSize(7).fillColor(WHITE);
+      doc.text('PRODUCTO',        COLS.product + 4, y + 5, { width: 140 });
+      doc.text('SKU',             COLS.sku     + 4, y + 5, { width: 85 });
+      doc.text('TALLA',           COLS.size    + 4, y + 5, { width: 40 });
+      doc.text('COLOR',           COLS.color   + 4, y + 5, { width: 50 });
+      doc.text('INICIAL',         COLS.initial + 4, y + 5, { width: 40, align: 'right' });
+      doc.text('VENDIDO',         COLS.sold    + 4, y + 5, { width: 40, align: 'right' });
+      doc.text('REPUESTO',        COLS.restock + 4, y + 5, { width: 30, align: 'right' });
+      doc.text('ACTUAL',          COLS.current + 4, y + 5, { width: W - 50 - COLS.current - 4, align: 'right' });
+    };
+
+    drawHeader(tableTop);
+    let rowY = tableTop + 18;
+    let rowIdx = 0;
+    const ROW_H = 16;
+
+    for (const product of products) {
+      for (const v of product.variants) {
+        if (rowY + ROW_H > doc.page.height - 60) {
+          doc.addPage();
+          rowY = 50;
+          drawHeader(rowY);
+          rowY += 18;
+          rowIdx = 0;
+        }
+
+        const isLowStock   = !v.isDropshippable && v.stock > 0 && v.stock <= 3;
+        const isOutOfStock = !v.isDropshippable && v.stock === 0;
+
+        if (rowIdx % 2 === 0) doc.rect(50, rowY, W - 100, ROW_H).fill(LIGHT);
+
+        const stockColor = isOutOfStock ? '#EF4444' : isLowStock ? '#F59E0B' : BLACK;
+
+        doc.font('Helvetica').fontSize(7.5).fillColor(BLACK)
+          .text(product.name, COLS.product + 4, rowY + 4, { width: 140, ellipsis: true });
+        doc.font('Helvetica').fontSize(7).fillColor(GRAY)
+          .text(v.sku, COLS.sku + 4, rowY + 5, { width: 85 });
+        doc.font('Helvetica').fontSize(7.5).fillColor(BLACK)
+          .text(v.size, COLS.size + 4, rowY + 4, { width: 40 })
+          .text(v.color, COLS.color + 4, rowY + 4, { width: 50, ellipsis: true });
+        doc.font('Helvetica').fontSize(7.5).fillColor(GRAY)
+          .text(String(v.initialStock), COLS.initial + 4, rowY + 4, { width: 40, align: 'right' })
+          .text(String(v.sold),         COLS.sold    + 4, rowY + 4, { width: 40, align: 'right' })
+          .text(String(v.restocked),    COLS.restock + 4, rowY + 4, { width: 30, align: 'right' });
+        doc.font('Helvetica-Bold').fontSize(8).fillColor(stockColor)
+          .text(v.isDropshippable ? '∞' : String(v.stock), COLS.current + 4, rowY + 4, { width: W - 50 - COLS.current - 4, align: 'right' });
+
+        rowY += ROW_H;
+        rowIdx++;
+      }
+    }
+
+    doc.moveTo(50, rowY).lineTo(W - 50, rowY).strokeColor(BORDER).lineWidth(0.5).stroke();
+
+    // Footer
+    const fY = doc.page.height - 50;
+    doc.rect(0, fY, W, 1).fill(BORDER);
+    doc.font('Helvetica').fontSize(8).fillColor(GRAY)
+      .text('PLayera — Reporte de inventario generado automáticamente', 50, fY + 10, { align: 'center', width: W - 100 });
+  });
+}
+
 // ─── PDF de reporte (múltiples órdenes en un período) ─────────────────────────
 export interface ReportOrder {
   orderNumber: string;

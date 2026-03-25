@@ -5,9 +5,12 @@ const router = Router();
 
 router.get('/shipping/options', (req: Request, res: Response) => {
     const subtotalCents = parseInt(req.query.subtotalCents as string, 10) || 0;
+    const localSubtotalCents = parseInt(req.query.localSubtotalCents as string, 10) || subtotalCents;
     const hasDropshipItems = req.query.hasDropshipItems === 'true';
+    const hasLocalItems = req.query.hasLocalItems === 'true';
 
-    if (hasDropshipItems) {
+    // Todos los items son dropship → envío gratis
+    if (hasDropshipItems && !hasLocalItems) {
         return res.json({
             options: [{
                 method: 'DROPSHIP',
@@ -16,10 +19,13 @@ router.get('/shipping/options', (req: Request, res: Response) => {
                 isFree: true,
             }],
             freeShippingMinCents: SHIPPING.FREE_SHIPPING_MIN_CENTS,
+            isMixed: false,
         });
     }
 
-    const standardFree = subtotalCents >= SHIPPING.FREE_SHIPPING_MIN_CENTS;
+    // Mixto o solo local: umbral de envío gratis basado en subtotal LOCAL
+    const effectiveSubtotal = hasDropshipItems ? localSubtotalCents : subtotalCents;
+    const standardFree = effectiveSubtotal >= SHIPPING.FREE_SHIPPING_MIN_CENTS;
 
     return res.json({
         options: [
@@ -37,6 +43,7 @@ router.get('/shipping/options', (req: Request, res: Response) => {
             },
         ],
         freeShippingMinCents: SHIPPING.FREE_SHIPPING_MIN_CENTS,
+        isMixed: hasDropshipItems && hasLocalItems,
     });
 });
 

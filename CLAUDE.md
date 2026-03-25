@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ LECTURA OBLIGATORIA PARA CADA SESIÓN
+
+**ANTES DE HACER CUALQUIER COSA:** Lee `.claude/PLAN.md` completamente. Ese archivo contiene:
+- Todas las tareas pendientes y su estado
+- Orden de ejecución recomendado
+- Complejidad y dependencias
+- Problemas conocidos en desarrollo
+
+**NO inicies ninguna tarea sin revisar PLAN.md primero.**
+
+## Plan de Desarrollo
+
+**SIEMPRE** consultar `.claude/PLAN.md` antes de proponer o iniciar cualquier tarea de desarrollo. Ese archivo contiene el plan completo con todas las tareas pendientes, su estado, complejidad y orden de ejecución recomendado. Cualquier nueva tarea o sprint debe registrarse ahí.
+
 ## Project Overview
 
 **PLayera v2** is a full-stack e-commerce platform for selling football jerseys (playeras de fútbol). Spanish is the primary language for content/UI.

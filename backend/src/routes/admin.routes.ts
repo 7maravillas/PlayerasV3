@@ -6,6 +6,7 @@ import { env } from '../lib/env.js';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middlewares/requireAuth.js';
 import { generateOrderPDF, generateReportPDF } from '../services/pdf.service.js';
+import { getRewardConfig } from '../services/rewards.service.js';
 
 const router = Router();
 
@@ -160,6 +161,60 @@ router.get('/orders/:id/pdf', requireAuth, async (req: Request, res: Response) =
     res.send(buffer);
   } catch {
     res.status(500).json({ error: 'Error generando PDF' });
+  }
+});
+
+/* ─── GET /admin/rewards/stats ─── */
+router.get('/rewards/stats', requireAuth, async (req: Request, res: Response) => {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const [totalPointsResult, totalUsers] = await Promise.all([
+      prisma.user.aggregate({ _sum: { rewardPoints: true } }),
+      prisma.user.count({ where: { rewardPoints: { gt: 0 } } }),
+    ]);
+    res.json({
+      totalPoints: totalPointsResult._sum.rewardPoints ?? 0,
+      totalUsers,
+    });
+  } catch {
+    res.status(500).json({ error: 'Error al obtener estadísticas' });
+  }
+});
+
+/* ─── GET /admin/rewards/config ─── */
+router.get('/rewards/config', requireAuth, async (req: Request, res: Response) => {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const config = await getRewardConfig();
+    res.json(config);
+  } catch {
+    res.status(500).json({ error: 'Error al obtener configuración de recompensas' });
+  }
+});
+
+/* ─── PUT /admin/rewards/config ─── */
+router.put('/rewards/config', requireAuth, async (req: Request, res: Response) => {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { enabled, centsPerPoint, pointValueCents, goalPoints } = req.body;
+    const config = await prisma.rewardConfig.upsert({
+      where: { id: 1 },
+      create: {
+        enabled:         typeof enabled         === 'boolean' ? enabled         : true,
+        centsPerPoint:   typeof centsPerPoint   === 'number'  ? centsPerPoint   : 400,
+        pointValueCents: typeof pointValueCents === 'number'  ? pointValueCents : 100,
+        goalPoints:      typeof goalPoints      === 'number'  ? goalPoints      : 550,
+      },
+      update: {
+        ...(typeof enabled         === 'boolean' && { enabled }),
+        ...(typeof centsPerPoint   === 'number'  && { centsPerPoint }),
+        ...(typeof pointValueCents === 'number'  && { pointValueCents }),
+        ...(typeof goalPoints      === 'number'  && { goalPoints }),
+      },
+    });
+    res.json(config);
+  } catch {
+    res.status(500).json({ error: 'Error al actualizar configuración de recompensas' });
   }
 });
 

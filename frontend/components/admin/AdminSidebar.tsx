@@ -1,19 +1,23 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, ShoppingBag, Package, Users, Settings, LogOut, Tag, Shield, Trophy, Star } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Package, Users, Settings, LogOut, Tag, Shield, Star, Gift, Ticket, Warehouse, Folder, BarChart3 } from "lucide-react";
 import { clearAdminToken } from "@/lib/api";
 
 const MENU_ITEMS = [
-  { name: "Dashboard", icon: LayoutDashboard, path: "/admin" },
-  { name: "Productos", icon: ShoppingBag, path: "/admin/products" },
+  { name: "Dashboard",  icon: LayoutDashboard, path: "/admin" },
+  { name: "Analytics",  icon: BarChart3,        path: "/admin/analytics" },
+  { name: "Productos",  icon: ShoppingBag,      path: "/admin/products" },
   { name: "Órdenes", icon: Package, path: "/admin/orders" },
+  { name: "Inventario", icon: Warehouse, path: "/admin/stock" },
   { name: "Reseñas", icon: Star, path: "/admin/reviews" },
   { name: "Clientes", icon: Users, path: "/admin/customers" },
+  { name: "Recompensas", icon: Gift, path: "/admin/rewards" },
+  { name: "Cupones", icon: Ticket, path: "/admin/coupons" },
   { name: "Ajustes", icon: Settings, path: "/admin/settings" },
   { name: "Estilos / Tags", icon: Tag, path: "/admin/tags" },
   { name: "Equipos / Clubes", icon: Shield, path: "/admin/clubs" },
-  { name: "Ligas", icon: Trophy, path: "/admin/leagues" },
+  { name: "Categorías", icon: Folder, path: "/admin/categories" },
 ];
 
 const AdminSidebar = () => {

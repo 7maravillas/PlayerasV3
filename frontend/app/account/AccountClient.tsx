@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import Footer from '@/components/Footer';
 import { apiFetch } from '@/lib/api';
+import { Star, ChevronUp, ChevronDown } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   PENDING_PAYMENT: { label: 'Pendiente de pago', color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30' },
@@ -19,6 +20,33 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 function formatMXN(cents: number) {
   return `$${(cents / 100).toLocaleString('es-MX', { minimumFractionDigits: 0 })} MXN`;
+}
+
+function TrackingCopyButton({ trackingNumber }: { trackingNumber: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(trackingNumber);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert('No se pudo copiar');
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
+        copied
+          ? 'bg-green-500/20 text-green-400 border border-green-500/40'
+          : 'bg-[#F8C37C]/20 text-[#F8C37C] border border-[#F8C37C]/40 hover:bg-[#F8C37C]/30'
+      }`}
+    >
+      <span>{copied ? '✓ Copiado' : '📋 Copiar'}</span>
+    </button>
+  );
 }
 
 interface OrderItem {
@@ -87,13 +115,13 @@ export default function AccountClient() {
       <main className="flex-1 container mx-auto px-4 py-12 max-w-4xl">
 
         {/* ── Botón volver ── */}
-        <button
-          onClick={() => router.back()}
+        <Link
+          href="/"
           className="flex items-center gap-2 text-sm text-th-secondary hover:text-th-primary transition-colors mb-8"
         >
           <span>←</span>
-          <span>Volver</span>
-        </button>
+          <span>Volver a la tienda</span>
+        </Link>
 
         {/* ── Header de perfil ── */}
         <div className="flex items-center justify-between mb-10">
@@ -131,12 +159,20 @@ export default function AccountClient() {
               <p className="text-sm capitalize">{user.role === 'ADMIN' ? 'Administrador' : 'Cliente'}</p>
             </div>
           </div>
-          <Link
-            href="/account/settings"
-            className="inline-block text-xs font-bold uppercase tracking-widest border border-th-border rounded-xl px-4 py-2 text-th-secondary hover:text-th-primary hover:border-[#F8C37C] transition-colors"
-          >
-            Editar perfil
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/account/settings"
+              className="inline-block text-xs font-bold uppercase tracking-widest border border-th-border rounded-xl px-4 py-2 text-th-secondary hover:text-th-primary hover:border-[#F8C37C] transition-colors"
+            >
+              Editar perfil
+            </Link>
+            <Link
+              href="/account/rewards"
+              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest border border-[#F8C37C]/40 rounded-xl px-4 py-2 text-[#F8C37C] hover:border-[#F8C37C] hover:bg-[#F8C37C]/5 transition-colors"
+            >
+              <Star className="w-3.5 h-3.5 fill-current" /> Mis puntos
+            </Link>
+          </div>
         </div>
 
         {/* ── Historial de órdenes ── */}
@@ -202,7 +238,9 @@ export default function AccountClient() {
                       <span className="text-sm font-bold text-[#F8C37C]">
                         {formatMXN(order.totalCents)}
                       </span>
-                      <span className="text-th-secondary text-sm">{isOpen ? '▲' : '▼'}</span>
+                      <span className="text-th-secondary text-sm">
+                        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </span>
                     </div>
                   </button>
 
@@ -242,46 +280,34 @@ export default function AccountClient() {
                       <div className="border-t border-th-border pt-4 flex flex-wrap gap-x-8 gap-y-2 text-xs text-th-secondary">
                         <span>Envío: <strong className="text-th-primary">{formatMXN(order.shippingCents)}</strong></span>
                         <span>Método: <strong className="text-th-primary">{order.shippingMethod}</strong></span>
-                        {order.trackingNumber && (
-                          <span>
-                            Rastreo:{' '}
-                            <Link
-                              href={`/tracking?number=${order.trackingNumber}`}
-                              className="text-[#F8C37C] hover:underline font-bold"
-                            >
-                              {order.trackingNumber}
-                            </Link>
-                          </span>
-                        )}
                       </div>
 
-                      {/* Descargar PDF */}
-                      <div className="border-t border-th-border pt-4">
-                        <a
-                          href={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'}/api/v1/orders/${order.id}/pdf`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={e => {
-                            // Añadir auth header no es posible con <a>, usamos fetch + blob
-                            e.preventDefault();
-                            fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'}/api/v1/orders/${order.id}/pdf`, {
-                              headers: { Authorization: `Bearer ${token}` },
-                            })
-                              .then(r => r.blob())
-                              .then(blob => {
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `orden-${order.orderNumber}.pdf`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                              });
-                          }}
-                          className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest border border-th-border rounded-xl px-4 py-2 text-th-secondary hover:border-[#F8C37C] hover:text-[#F8C37C] transition-colors"
-                        >
-                          ↓ Descargar PDF
-                        </a>
-                      </div>
+                      {/* Panel de Rastreo */}
+                      {order.trackingNumber && (
+                        <div className="border-t border-th-border pt-4">
+                          <div className="bg-gradient-to-r from-[#F8C37C]/10 to-transparent border border-[#F8C37C]/30 rounded-xl p-5">
+                            <p className="text-xs font-bold uppercase tracking-widest text-th-secondary mb-3">
+                              Número de rastreo
+                            </p>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1">
+                                <p className="text-lg md:text-xl font-bold font-mono text-[#F8C37C] tracking-wide">
+                                  {order.trackingNumber}
+                                </p>
+                              </div>
+                              <TrackingCopyButton trackingNumber={order.trackingNumber} />
+                            </div>
+                            <p className="text-xs text-th-secondary mt-3">
+                              <Link
+                                href={`/tracking?number=${order.trackingNumber}`}
+                                className="text-[#F8C37C] hover:underline font-bold"
+                              >
+                                Ver rastreo en tiempo real →
+                              </Link>
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

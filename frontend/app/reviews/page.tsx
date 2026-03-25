@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Send,
   ChevronRight,
+  CheckCircle2,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
@@ -188,7 +189,7 @@ export default function ReviewsPage() {
         setReviews(Array.isArray(reviewsData) ? reviewsData : []);
         setStats(statsData);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [activeFilter]);
 
   // Abrir form + fetch productos para el selector
@@ -206,7 +207,7 @@ export default function ReviewsPage() {
               : []
           );
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   };
 
@@ -238,7 +239,7 @@ export default function ReviewsPage() {
     }
   };
 
-  // Ordenamiento inteligente: foto → 5★ → texto largo
+  // Ordenamiento inteligente: foto → 5 estrellas → texto largo
   const filteredReviews = useMemo(() => {
     return [...reviews].sort((a, b) => {
       if (a.image && !b.image) return -1;
@@ -309,11 +310,10 @@ export default function ReviewsPage() {
                       onClick={() =>
                         setActiveFilter(isActive ? null : star)
                       }
-                      className={`w-full flex items-center gap-3 py-2 px-3 rounded-lg transition-all ${
-                        isActive
+                      className={`w-full flex items-center gap-3 py-2 px-3 rounded-lg transition-all ${isActive
                           ? "bg-accent/10 ring-1 ring-accent/30"
                           : "hover:bg-theme-surface"
-                      }`}
+                        }`}
                       aria-label={`Filtrar ${star} estrella${star !== 1 ? "s" : ""} (${count} reseñas)`}
                     >
                       <span className="text-sm font-medium text-th-primary w-3 tabular-nums">
@@ -491,7 +491,7 @@ export default function ReviewsPage() {
 
             {submitted ? (
               <div className="text-center py-8">
-                <p className="text-4xl mb-4">✅</p>
+                <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-th-primary mb-2">
                   ¡Gracias!
                 </h3>

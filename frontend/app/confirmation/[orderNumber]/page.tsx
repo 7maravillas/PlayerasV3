@@ -169,7 +169,7 @@ export default function ConfirmationPage() {
                         </div>
                         <div className="text-sm text-th-secondary space-y-1">
                             <p className="text-th-primary font-semibold">{order.shippingMethod || 'Envío Estándar'}</p>
-                            <p>{order.shippingCents === 0 ? "Envío Gratis ✨" : formatPrice(order.shippingCents)}</p>
+                            <p>{order.shippingCents === 0 ? "Envío Gratis" : formatPrice(order.shippingCents)}</p>
                         </div>
                     </div>
                 </div>
@@ -197,7 +197,7 @@ export default function ConfirmationPage() {
                                         <span>×{item.quantity}</span>
                                     </div>
                                     {item.isPersonalized && (
-                                        <p className="text-xs text-accent mt-0.5">✨ {item.customName} #{item.customNumber}</p>
+                                        <p className="text-xs text-accent mt-0.5">Personalizado: {item.customName} #{item.customNumber}</p>
                                     )}
                                 </div>
                                 <span className="font-bold text-sm">{formatPrice(item.totalCents)}</span>

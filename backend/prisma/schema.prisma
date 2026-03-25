@@ -114,6 +114,10 @@ model Product {
   slug        String       @unique
   description String       @default("")
   brand       String?      // NUEVO: Agregado para tu formulario
+
+  // Recompensas
+  earnPoints   Boolean      @default(true)   // ¿Acumula puntos al comprar?
+  redeemMaxQty Int?                          // null=ilimitado, 0=no canjeable, 1+=máx qty con puntos
   
   // Datos de Fútbol (Opcionales por ahora para no romper el formulario simple)
   jerseyStyle JerseyStyle? 
@@ -192,11 +196,24 @@ model ProductVariant {
   updatedAt           DateTime @updatedAt
 
   purchaseOrderItems PurchaseOrderItem[]
+  stockMovements     StockMovement[]
 
   @@index([productId])
   @@index([size, audience, sleeve])
   @@index([priceCents])
   @@index([stock])
+}
+
+model StockMovement {
+  id        String         @id @default(uuid())
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity  Int            // siempre positivo — unidades añadidas
+  notes     String         @default("")
+  createdAt DateTime       @default(now())
+
+  @@index([variantId])
+  @@index([createdAt])
 }
 
 model ProductTag {
@@ -234,9 +251,13 @@ model Order {
   trackingNumber  String?        @db.VarChar(100)
 
   // Totales (recalculados por el backend, NUNCA del frontend)
-  subtotalCents   Int
-  totalCents      Int
-  currency        String         @default("MXN")
+  subtotalCents        Int
+  totalCents           Int
+  rewardDiscountCents  Int            @default(0)  // Descuento aplicado con puntos
+  rewardPointsUsed     Int            @default(0)  // Puntos canjeados
+  couponCode          String?
+  couponDiscountCents Int            @default(0)
+  currency             String         @default("MXN")
 
   // Expiración — órdenes no pagadas se cancelan y devuelven stock
   expiresAt       DateTime?
@@ -344,9 +365,36 @@ model User {
   updatedAt          DateTime            @updatedAt
   verificationTokens VerificationToken[]
   orders             Order[]
+  rewardPoints       Int                 @default(0)
+  rewardHistory      RewardTransaction[]
+  customerTags       String[]            @default([])
+  notes              CustomerNote[]
 
   @@index([role])
   @@index([createdAt])
+}
+
+model CustomerNote {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model RewardTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  type        String   // "EARN" | "REDEEM"
+  points      Int
+  description String
+  orderId     String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model VerificationToken {
@@ -363,6 +411,41 @@ model VerificationToken {
   @@index([expiresAt])
 }
 
+// ────────── CUPONES ──────────
+model Coupon {
+  id                String        @id @default(uuid())
+  code              String        @unique
+  description       String        @default("")
+  discountPercent   Int
+  minPurchaseCents  Int           @default(0)
+  firstPurchaseOnly Boolean       @default(false)
+  usageLimit        Int?
+  usageCount        Int           @default(0)
+  startsAt          DateTime?
+  expiresAt         DateTime?
+  active            Boolean       @default(true)
+  usages            CouponUsage[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([code])
+  @@index([active])
+}
+
+model CouponUsage {
+  id            String   @id @default(uuid())
+  couponId      String
+  coupon        Coupon   @relation(fields: [couponId], references: [id])
+  orderId       String   @unique
+  userId        String?
+  email         String
+  discountCents Int
+  createdAt     DateTime @default(now())
+
+  @@index([couponId])
+  @@index([email])
+}
+
 // ────────── RESEÑAS ──────────
 model Review {
   id        String   @id @default(uuid())
@@ -377,6 +460,16 @@ model Review {
   createdAt DateTime @default(now())
 
   @@index([productId, createdAt])
+}
+
+// ────────── RECOMPENSAS CONFIG ──────────
+model RewardConfig {
+  id              Int      @id @default(1) // singleton
+  enabled         Boolean  @default(true)
+  centsPerPoint   Int      @default(400)   // centavos gastados = 1 punto (400 = $4 MXN)
+  pointValueCents Int      @default(100)   // centavos de descuento por punto (100 = $1 MXN)
+  goalPoints      Int      @default(550)   // puntos para recompensa en página de cuenta
+  updatedAt       DateTime @updatedAt
 }
 
 // ────────── ANALÍTICAS ──────────

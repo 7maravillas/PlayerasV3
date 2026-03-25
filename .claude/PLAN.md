@@ -306,17 +306,6 @@ Backend ya implementado: `POST /auth/forgot-password` (auth.routes.ts:147), `POS
 
 ---
 
-#### 🟡 EX7 — Productos destacados bajo reviews
-**Complejidad:** Baja
-**Archivos:** `frontend/app/reviews/page.tsx` (agregar sección antes de línea 462)
-**Solución:**
-La página de reviews termina sin sección de productos. Agregar después del `</div>` de línea 460:
-1. Sección con título "Productos Destacados" y grid 2x2 (mobile) / 4 cols (desktop).
-2. Fetch a `GET /api/v1/products?limit=4&sort=newest` (endpoint ya existe).
-3. Cards con imagen, nombre, precio, link a `/product/[id]`. Reutilizar patrón visual de ProductListing.tsx.
-
----
-
 #### 🟡 EX5-F — Buscador optimizado (parte frontend)
 **Complejidad:** Media
 **Archivos:** `frontend/components/Navbar.tsx` (líneas 80-191, mega-menu 437-493)
@@ -384,37 +373,22 @@ No existe generación de PDF. Solo emails HTML en mailer.ts.
 
 ---
 
-#### 🟢 EX8 — Sistema de recompensas
-**Complejidad:** Alta
-**Archivos:**
-- `backend/prisma/schema.prisma` (nuevos modelos: `RewardTransaction`, campo `rewardPoints` en User)
-- `backend/src/routes/rewards.routes.ts` (nuevo)
-- `backend/src/services/rewards.service.ts` (nuevo)
-- `frontend/app/account/rewards/page.tsx` (nuevo)
-- `frontend/app/admin/rewards/page.tsx` (nuevo)
-- `frontend/app/checkout/page.tsx` (integrar redención)
-
-**Solución:**
-Cero implementación. Subdividir en fases:
-- **Fase 1 — Earn en órdenes:** Modelo `RewardTransaction` (id, userId, type enum, points, description, orderId?, createdAt). Campo `rewardPoints Int @default(0)` en User. Service `earnPoints` llamado en webhook Stripe. Endpoints GET /rewards/balance y /rewards/history. Página `/account/rewards`.
-- **Fase 2 — Redeem en checkout:** Endpoint `POST /rewards/redeem` genera descuento. Integración en checkout.
-- **Fase 3 — Admin config:** Modelo `RewardConfig` (singleton). Página admin para tasas.
+#### ✅ EX8 — Sistema de recompensas
+**Estado:** Completo (Fases 1, 2 y 3)
+- **Fase 1** ✅ — Earn: webhook llama `earnPoints`, rutas balance/historial, página `/account/rewards`
+- **Fase 2** ✅ — Redeem: integrado en `POST /orders`, checkout UI con selector de puntos
+- **Fase 3** ✅ — Admin config: modelo `RewardConfig` (singleton), `GET/PUT /admin/rewards/config`, `GET /admin/rewards/stats`, página `/admin/rewards`
 
 ---
 
-#### 🟢 EX9 — CRM interno
-**Complejidad:** Alta
-**Depende de:** EX3 (Admin Clientes) como base
-**Archivos:**
-- `backend/prisma/schema.prisma` (modelo `CustomerNote`, campo `tags String[]` en User)
-- `backend/src/routes/admin.routes.ts` (endpoints CRM)
-- `frontend/app/admin/crm/page.tsx` (nuevo)
-
-**Solución:**
-Requiere EX3 primero. Luego extender:
-- **Backend:** Modelo `CustomerNote` (id, userId, adminNote, createdAt). Campo `tags String[]` en User. Endpoints: GET /admin/crm/customers (enriquecido con totalSpent, lastOrderDate, tags), POST /admin/crm/customers/:id/notes, PUT /admin/crm/customers/:id/tags.
-- **Frontend:** Página `/admin/crm` con tabla enriquecida, filtros por segmento, buscador. Detalle de cliente con timeline, notas, métricas. Link en AdminSidebar.tsx.
-- Email masivo fuera de scope.
+#### ✅ EX9 — CRM interno
+**Estado:** Completo (Fases 1-6)
+- **Fase 1** ✅ — Schema: `CustomerNote`, `customerTags String[]` en User, migración
+- **Fase 2** ✅ — Analytics backend: top-viewed, top-sold, least-viewed, least-sold, conversion, revenue/timeline, orders/summary, customers/summary (en `analytics.routes.ts`)
+- **Fase 3** ✅ — CRM routes: `crm.routes.ts` con GET /customers (enriquecido, sort, tag filter), GET /customers/:id (stats completas, orders, notes, rewards), POST/DELETE notes, PUT tags
+- **Fase 4** ✅ — Dashboard admin: `/admin/page.tsx` con RevenueChart SVG + MiniBarList, KPIs, orders summary, customers summary
+- **Fase 5** ✅ — Analytics page: `/admin/analytics` con period selector (7d/30d/90d) y 3 tabs (Vistas/Ventas/Conversión)
+- **Fase 6** ✅ — CRM clientes frontend: `/admin/customers` tabla enriquecida con gasto/tags/sort, `/admin/customers/[id]` detalle con stats, tabs órdenes/notas/puntos, CRUD notas, edición de tags
 
 ---
 

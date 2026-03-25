@@ -8,6 +8,8 @@ import { CreateOrderSchema, UpdateOrderStatusSchema } from '../validators/order.
 import { SHIPPING } from '../config/shipping.js';
 import { generateOrderPDF } from '../services/pdf.service.js';
 import { generateReportPDF } from '../services/pdf.service.js';
+import { calculateRedeemDiscount, applyRedeem, earnPoints } from '../services/rewards.service.js';
+import { validateCoupon, recordCouponUsage } from '../services/coupon.service.js';
 
 const router = Router();
 
@@ -150,6 +152,29 @@ router.post('/orders', createOrderLimiter, async (req: Request, res: Response) =
             }
         }
 
+        // 4b. Calcular descuento por puntos (antes de la transacción, necesita productIds)
+        const pointsToRedeem = data.rewardPointsToRedeem ?? 0;
+        let rewardDiscountCents = 0;
+        let rewardPointsUsed = 0;
+
+        if (pointsToRedeem > 0 && userId) {
+            const itemsForRewards = data.items.map((item, i) => ({
+                productId: variants.find(v => v.id === resolvedVariantIds[i])?.product?.id ?? null,
+                unitPriceCents: variantMap.get(resolvedVariantIds[i])?.priceCents ?? 0,
+                quantity: item.quantity,
+            }));
+            const redeemResult = await calculateRedeemDiscount(userId, pointsToRedeem, itemsForRewards);
+            if (redeemResult.error) {
+                return res.status(400).json({ error: redeemResult.error });
+            }
+            rewardDiscountCents = redeemResult.discountCents;
+            rewardPointsUsed = redeemResult.pointsUsed;
+        }
+
+        // 4c. Validar cupón de descuento (si se envió uno)
+        let couponDiscountCents = 0;
+        const couponCode = data.couponCode?.trim().toUpperCase() || null;
+
         // 5. Calcular subtotal con precios REALES del backend (pre-transacción)
         let subtotalCents = 0;
 
@@ -184,6 +209,19 @@ router.post('/orders', createOrderLimiter, async (req: Request, res: Response) =
             };
         });
 
+        // 5b. Aplicar descuento de cupón (sobre subtotal ya calculado)
+        if (couponCode) {
+            const couponResult = await validateCoupon({
+                code: couponCode,
+                subtotalCents,
+                email: data.email,
+                userId,
+            });
+            if (couponResult.valid) {
+                couponDiscountCents = couponResult.discountCents;
+            }
+        }
+
         // 6. Calcular envío (pre-cálculo, se recalcula dentro de la transacción)
         const shippingMethod = data.shippingMethod;
         const orderNumber = generateOrderNumber();
@@ -206,9 +244,9 @@ router.post('/orders', createOrderLimiter, async (req: Request, res: Response) =
                 const fresh = freshMap.get(vid)!;
                 const qty = data.items[i].quantity;
 
-                // Si tiene stock local suficiente → Envío Rápido
-                // Si no tiene stock o es dropshippable → Dropshipping (no falla)
-                const canFulfillLocally = !fresh.isDropshippable && fresh.stock >= qty;
+                // Si tiene stock local suficiente → Envío Rápido (prioridad sobre dropshipping)
+                // Si no tiene stock → Dropshipping si isDropshippable=true, de lo contrario agotado
+                const canFulfillLocally = fresh.stock >= qty;
 
                 return {
                     ...item,
@@ -245,10 +283,14 @@ router.post('/orders', createOrderLimiter, async (req: Request, res: Response) =
             } else if (isExpress) {
                 shippingCents = SHIPPING.EXPRESS_CENTS;
             } else {
-                shippingCents = subtotalCents >= SHIPPING.FREE_SHIPPING_MIN_CENTS ? 0 : SHIPPING.STANDARD_CENTS;
+                // Umbral de envío gratis basado solo en ítems locales
+                const localSubtotalCents = finalOrderItems
+                    .filter(item => !item.isDropshippable)
+                    .reduce((sum, item) => sum + item.totalCents, 0);
+                shippingCents = localSubtotalCents >= SHIPPING.FREE_SHIPPING_MIN_CENTS ? 0 : SHIPPING.STANDARD_CENTS;
             }
 
-            const totalCents = subtotalCents + shippingCents;
+            const totalCents = Math.max(0, subtotalCents + shippingCents - rewardDiscountCents - couponDiscountCents);
 
             // 7e. Crear la orden con los ítems ya resueltos
             // Limpiar campos internos (_shouldDecrementStock, etc.) antes de insertar
@@ -271,6 +313,10 @@ router.post('/orders', createOrderLimiter, async (req: Request, res: Response) =
                     shippingCents,
                     subtotalCents,
                     totalCents,
+                    rewardDiscountCents,
+                    rewardPointsUsed,
+                    couponCode,
+                    couponDiscountCents,
                     currency: 'MXN',
                     expiresAt,
                     userId,
@@ -286,7 +332,9 @@ router.post('/orders', createOrderLimiter, async (req: Request, res: Response) =
             return newOrder;
         });
 
-        // TODO: Enviar email de notificación al admin (Resend/SendGrid en fase futura)
+        // ⚠️ Los puntos NO se descuentan aquí — se descuentan cuando el pago
+        // es confirmado (webhook Stripe o admin cambia a PAID) para evitar
+        // pérdida de puntos si el usuario no completa el pago.
 
         res.status(201).json({
             orderNumber: order.orderNumber,
@@ -471,11 +519,47 @@ router.put('/orders/:id/status', requireAuth, async (req: Request, res: Response
             updateData.trackingNumber = parsed.data.trackingNumber;
         }
 
+        // Leer estado anterior para detectar transición a PAID
+        const prevOrder = await prisma.order.findUnique({
+            where: { id: req.params.id },
+            select: { status: true, userId: true, orderNumber: true },
+        });
+
         const order = await prisma.order.update({
             where: { id: req.params.id },
             data: updateData,
             include: { items: true },
         });
+
+        // Acreditar puntos si transicionó a PAID y tiene usuario registrado
+        // Solo si antes NO era PAID (evita doble acreditación)
+        if (
+            parsed.data.status === 'PAID' &&
+            prevOrder?.status !== 'PAID' &&
+            order.userId
+        ) {
+            const itemsForRewards = order.items.map((item: any) => ({
+                productId: item.productId,
+                unitPriceCents: item.unitPriceCents,
+                quantity: item.quantity,
+            }));
+            earnPoints(
+                order.userId,
+                order.id,
+                itemsForRewards,
+                `Orden ${order.orderNumber}`,
+            ).catch((err) => console.error('⚠️  earnPoints (admin) fallido:', err));
+
+            // Descontar puntos canjeados (diferido desde creación de orden)
+            if (order.rewardPointsUsed > 0) {
+                applyRedeem(
+                    order.userId,
+                    order.rewardPointsUsed,
+                    order.id,
+                    `Canje en orden ${order.orderNumber}`,
+                ).catch((err) => console.error('⚠️  applyRedeem (admin) fallido:', err));
+            }
+        }
 
         res.json(order);
     } catch {

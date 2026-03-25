@@ -5,7 +5,7 @@ import { useCartStore } from "@/app/store/cartStore";
 import { api } from "@/lib/api";
 import { getDeliveryDates } from "@/lib/shipping";
 import Navbar from "@/components/Navbar";
-import { ShieldCheck, Truck, CreditCard, ChevronRight, Package, Zap, Loader2 } from "lucide-react";
+import { ShieldCheck, Truck, CreditCard, ChevronRight, Package, Zap, Loader2, Star, Tag, X } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -35,7 +35,38 @@ export default function CheckoutPage() {
     const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
     const [shippingLoading, setShippingLoading] = useState(true);
 
+    // Recompensas
+    const [rewardBalance, setRewardBalance] = useState<{ points: number; valueCents: number } | null>(null);
+    const [pointsToRedeem, setPointsToRedeem] = useState(0);
+    const [redeemInput, setRedeemInput] = useState("");
+
+    // Cupones
+    const [couponInput, setCouponInput] = useState("");
+    const [couponData, setCouponData] = useState<{ code: string; discountPercent: number; discountCents: number; description: string } | null>(null);
+    const [couponError, setCouponError] = useState("");
+    const [couponLoading, setCouponLoading] = useState(false);
+    const [firstPurchaseCoupon, setFirstPurchaseCoupon] = useState<{ code: string; discountPercent: number; description: string } | null>(null);
+
     useEffect(() => { setMounted(true); }, []);
+
+    // Fetch balance de puntos si está logueado
+    useEffect(() => {
+        if (!token) return;
+        fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000"}/api/v1/rewards/balance`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((r) => r.json())
+            .then((data) => { if (data?.points !== undefined) setRewardBalance(data); })
+            .catch(() => {});
+    }, [token]);
+
+    // Fetch cupón de primera compra activo (para sugerencia)
+    useEffect(() => {
+        fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000"}/api/v1/coupons/announcement`)
+            .then((r) => r.json())
+            .then((data) => { if (data?.code) setFirstPurchaseCoupon(data); })
+            .catch(() => {});
+    }, []);
 
     // Pre-llenar email si el usuario tiene sesión
     useEffect(() => {
@@ -48,8 +79,13 @@ export default function CheckoutPage() {
         if (!mounted) return;
         const subtotalCents = Math.round(getSubtotal() * 100);
         const hasDropship = items.some(item => !item.hasLocalStock || item.isCustomized);
+        const hasLocal = items.some(item => item.hasLocalStock && !item.isCustomized);
+        const localSubCents = Math.round(
+            items.filter(item => item.hasLocalStock && !item.isCustomized)
+                .reduce((sum, item) => sum + item.price * item.quantity, 0) * 100
+        );
 
-        api.get(`/api/v1/shipping/options?subtotalCents=${subtotalCents}&hasDropshipItems=${hasDropship}`)
+        api.get(`/api/v1/shipping/options?subtotalCents=${subtotalCents}&hasDropshipItems=${hasDropship}&hasLocalItems=${hasLocal}&localSubtotalCents=${localSubCents}`)
             .then((data: { options: ShippingOption[] }) => {
                 setShippingOptions(data.options);
                 setShippingMethod(data.options[0]?.method ?? "STANDARD");
@@ -75,12 +111,47 @@ export default function CheckoutPage() {
 
     // Calcular envío
     const hasDropshipItems = items.some(item => !item.hasLocalStock || item.isCustomized);
+    const hasLocalItems = items.some(item => item.hasLocalStock && !item.isCustomized);
     const subtotal = getSubtotal();
     const selectedOption = shippingOptions.find(o => o.method === shippingMethod);
     const standardOption = shippingOptions.find(o => o.method === 'STANDARD');
     const expressOption = shippingOptions.find(o => o.method === 'EXPRESS');
     const shippingCost = (selectedOption?.costCents ?? 0) / 100;
-    const total = subtotal + shippingCost;
+    const maxRedeemable = Math.min(rewardBalance?.points ?? 0, Math.floor(subtotal));
+    const rewardDiscount = Math.min(pointsToRedeem, maxRedeemable);
+    const couponDiscountAmount = couponData ? subtotal * couponData.discountPercent / 100 : 0;
+    const total = Math.max(0, subtotal + shippingCost - rewardDiscount - couponDiscountAmount);
+
+    const applyCoupon = async (code: string) => {
+        const trimmed = code.trim().toUpperCase();
+        if (!trimmed) return;
+        setCouponLoading(true);
+        setCouponError("");
+        setCouponData(null);
+        try {
+            const result = await api.post("/api/v1/coupons/validate", {
+                code: trimmed,
+                subtotalCents: Math.round(subtotal * 100),
+                email: formData.email || (user?.email ?? ""),
+            });
+            if (result.valid) {
+                setCouponData({ code: trimmed, discountPercent: result.discountPercent, discountCents: result.discountCents, description: result.description });
+                setCouponInput(trimmed);
+            } else {
+                setCouponError(result.error || "Cupón inválido");
+            }
+        } catch {
+            setCouponError("No se pudo validar el cupón");
+        } finally {
+            setCouponLoading(false);
+        }
+    };
+
+    const removeCoupon = () => {
+        setCouponData(null);
+        setCouponError("");
+        setCouponInput("");
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -89,7 +160,7 @@ export default function CheckoutPage() {
 
     const handleCheckout = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true); // ✅ PREVENCIÓN DE DOBLE CLIC: botón bloqueado desde el primer clic
+        setLoading(true); // PREVENCIÓN DE DOBLE CLIC: botón bloqueado desde el primer clic
         setError("");
 
         try {
@@ -105,15 +176,19 @@ export default function CheckoutPage() {
                 customNumber: item.customNumber || null,
             }));
 
-            // Determinar el método de envío global según el peor escenario del carrito
+            // Determinar el método de envío según los tipos de items
             const hasCustomized = items.some(item => item.isCustomized);
             const hasDropship   = items.some(item => !item.hasLocalStock);
+            const hasLocal      = items.some(item => item.hasLocalStock && !item.isCustomized);
 
             let finalShippingMethod: string;
             if (hasCustomized) {
                 finalShippingMethod = "Estándar Personalizado (20-27 días)";
-            } else if (hasDropship) {
+            } else if (hasDropship && !hasLocal) {
                 finalShippingMethod = "Estándar Internacional (22-25 días)";
+            } else if (hasDropship && hasLocal) {
+                const localMethod = shippingMethod === "EXPRESS" ? "Express DHL (1-3 días)" : "Envío Rápido (3-7 días)";
+                finalShippingMethod = `Mixto: ${localMethod} + Internacional`;
             } else if (shippingMethod === "EXPRESS") {
                 finalShippingMethod = "Express DHL (1-3 días)";
             } else {
@@ -126,10 +201,12 @@ export default function CheckoutPage() {
                 reference: formData.reference || null,
                 shippingMethod: finalShippingMethod,
                 items: orderItems,
+                rewardPointsToRedeem: rewardDiscount > 0 ? rewardDiscount : undefined,
+                couponCode: couponData?.code ?? undefined,
             }, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
 
             // PASO 2: Crear sesión de Stripe Checkout con los datos reales de la orden
-            // ✅ SEGURIDAD: El estado PAID solo cambia vía webhook cuando Stripe confirma el cobro
+            // SEGURIDAD: El estado PAID solo cambia vía webhook cuando Stripe confirma el cobro
             const { stripeUrl } = await api.post(
                 `/api/v1/orders/${result.orderNumber}/stripe-session`,
                 {}
@@ -141,7 +218,7 @@ export default function CheckoutPage() {
             sessionStorage.setItem('order_email', formData.email);
 
             // PASO 4: Redirigir al usuario a la página de pago de Stripe
-            // ✅ NO limpiar carrito aquí — se limpia en /confirmation solo si el pago fue exitoso
+            // NO limpiar carrito aquí — se limpia en /confirmation solo si el pago fue exitoso
             // El botón permanece deshabilitado hasta que la página cambia (no hay doble clic posible)
             window.location.href = stripeUrl;
 
@@ -251,7 +328,8 @@ export default function CheckoutPage() {
                                             <Loader2 className="w-4 h-4 animate-spin text-th-secondary" />
                                             <span className="text-sm text-th-secondary">Calculando opciones de envío...</span>
                                         </div>
-                                    ) : hasDropshipItems ? (
+                                    ) : hasDropshipItems && !hasLocalItems ? (
+                                        /* TODOS dropship — envío gratis */
                                         <label className="flex items-center justify-between p-4 rounded-xl border-2 border-accent bg-accent/5 cursor-default">
                                             <div className="flex items-center gap-3">
                                                 <input type="radio" checked readOnly className="accent-accent" />
@@ -265,6 +343,24 @@ export default function CheckoutPage() {
                                         </label>
                                     ) : (
                                         <>
+                                            {/* MIXTO: banner informativo para artículos importados */}
+                                            {hasDropshipItems && hasLocalItems && (
+                                                <>
+                                                    <div className="flex items-center justify-between p-4 rounded-xl border-2 border-accent/30 bg-accent/5">
+                                                        <div className="flex items-center gap-3">
+                                                            <Package className="w-5 h-5 text-accent" />
+                                                            <div>
+                                                                <p className="font-bold text-sm">Artículos importados — Envío Gratuito</p>
+                                                                <p className="text-xs text-th-secondary">Llega del {getDeliveryDates('dropship')}</p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="font-bold text-sm text-accent">Gratis</span>
+                                                    </div>
+                                                    <p className="text-xs text-th-secondary font-semibold uppercase tracking-wide">Envío para artículos en stock:</p>
+                                                </>
+                                            )}
+
+                                            {/* Opciones Standard / Express para ítems locales */}
                                             <label
                                                 className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${shippingMethod === "STANDARD"
                                                     ? "border-black bg-black/5"
@@ -304,6 +400,78 @@ export default function CheckoutPage() {
                                     )}
                                 </div>
                             </section>
+
+                            {/* CUPÓN — sugerencia de primera compra */}
+                            {firstPurchaseCoupon && !couponData && (
+                                <div className="flex items-start gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3">
+                                    <Tag className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-th-primary font-semibold">
+                                            ¿Quieres aplicar el cupón de primera compra?
+                                        </p>
+                                        <p className="text-xs text-th-secondary mt-0.5">
+                                            {firstPurchaseCoupon.discountPercent}% de descuento con el código{" "}
+                                            <span className="font-bold text-accent tracking-widest">{firstPurchaseCoupon.code}</span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => applyCoupon(firstPurchaseCoupon.code)}
+                                        disabled={couponLoading}
+                                        className="flex-shrink-0 text-xs font-bold uppercase tracking-widest border border-accent/40 text-accent rounded-lg px-3 py-1.5 hover:bg-accent/10 transition-colors disabled:opacity-50"
+                                    >
+                                        Aplicar
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* RECOMPENSAS */}
+                            {user && rewardBalance && rewardBalance.points > 0 && (
+                                <section className="space-y-3">
+                                    <h2 className="text-xl font-heading uppercase tracking-wide flex items-center gap-2">
+                                        <Star className="w-5 h-5 text-[#F8C37C]" />
+                                        Usar mis puntos
+                                    </h2>
+                                    <div className="rounded-xl border border-[#F8C37C]/30 bg-[#F8C37C]/5 p-4">
+                                        <p className="text-sm text-th-secondary mb-3">
+                                            Tienes <span className="font-bold text-[#F8C37C]">{rewardBalance.points} puntos</span> disponibles
+                                            {maxRedeemable < rewardBalance.points && (
+                                                <> (puedes usar hasta <span className="font-bold text-[#F8C37C]">{maxRedeemable}</span> en esta orden)</>
+                                            )}
+                                        </p>
+                                        <div className="flex gap-3">
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                max={maxRedeemable}
+                                                value={redeemInput}
+                                                onChange={(e) => {
+                                                    setRedeemInput(e.target.value);
+                                                    const val = Math.min(parseInt(e.target.value) || 0, maxRedeemable);
+                                                    setPointsToRedeem(val);
+                                                }}
+                                                placeholder={`Máx. ${maxRedeemable}`}
+                                                className="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-black text-sm focus:border-[#F8C37C] outline-none transition-colors"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setPointsToRedeem(maxRedeemable);
+                                                    setRedeemInput(String(maxRedeemable));
+                                                }}
+                                                className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest border border-[#F8C37C]/50 text-[#F8C37C] rounded-lg hover:bg-[#F8C37C]/10 transition-colors whitespace-nowrap"
+                                            >
+                                                Usar todos
+                                            </button>
+                                        </div>
+                                        {pointsToRedeem > 0 && (
+                                            <p className="text-xs text-emerald-500 mt-2 font-semibold">
+                                                ✓ Aplicando {pointsToRedeem} pts → -${pointsToRedeem} MXN de descuento
+                                            </p>
+                                        )}
+                                    </div>
+                                </section>
+                            )}
 
                             {/* ERROR */}
                             {error && (
@@ -345,7 +513,7 @@ export default function CheckoutPage() {
                                             {item.size && <p className="text-xs text-th-secondary uppercase">Talla: <span className="text-th-primary">{item.size}</span></p>}
                                             {item.isCustomized && (
                                                 <p className="text-xs text-accent">
-                                                    ✨ {item.customName} #{item.customNumber}
+                                                    Personalizado: {item.customName} #{item.customNumber}
                                                 </p>
                                             )}
                                         </div>
@@ -363,15 +531,82 @@ export default function CheckoutPage() {
                                     <span>Subtotal</span>
                                     <span className="text-th-primary">${Number(subtotal).toFixed(2).replace(/\.00$/, '')}</span>
                                 </div>
+                                {hasDropshipItems && hasLocalItems && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="flex items-center gap-1">
+                                            <Package className="w-4 h-4" />
+                                            Importados
+                                        </span>
+                                        <span className="text-accent font-bold uppercase">Gratis</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between items-center">
                                     <span className="flex items-center gap-1">
                                         <Truck className="w-4 h-4" />
-                                        {shippingMethod === "EXPRESS" ? "Express (DHL)" : "Estándar"}
+                                        {hasDropshipItems && !hasLocalItems
+                                            ? "Internacional"
+                                            : shippingMethod === "EXPRESS" ? "Express (DHL)" : "Estándar"}
                                     </span>
                                     <span className={shippingCost === 0 ? "text-accent font-bold uppercase" : "text-th-primary"}>
                                         {shippingCost === 0 ? "Gratis" : `$${Number(shippingCost).toFixed(2).replace(/\.00$/, '')}`}
                                     </span>
                                 </div>
+                                {rewardDiscount > 0 && (
+                                    <div className="flex justify-between items-center text-[#F8C37C]">
+                                        <span className="flex items-center gap-1">
+                                            <Star className="w-4 h-4" />
+                                            Puntos canjeados ({rewardDiscount} pts)
+                                        </span>
+                                        <span className="font-bold">-${rewardDiscount}</span>
+                                    </div>
+                                )}
+                                {couponData && (
+                                    <div className="flex justify-between items-center text-emerald-500">
+                                        <span className="flex items-center gap-1">
+                                            <Tag className="w-4 h-4" />
+                                            Cupón <span className="font-bold tracking-widest">{couponData.code}</span>
+                                            <button type="button" onClick={removeCoupon} className="ml-1 text-th-secondary hover:text-red-400 transition-colors">
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </span>
+                                        <span className="font-bold">-${couponDiscountAmount.toFixed(2).replace(/\.00$/, '')}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* AGREGAR CUPÓN */}
+                            <div className="mb-4">
+                                {!couponData ? (
+                                    <div className="space-y-1.5">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Código de cupón"
+                                                value={couponInput}
+                                                onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(""); }}
+                                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyCoupon(couponInput))}
+                                                className="flex-1 bg-theme-bg border border-th-border/20 rounded-xl px-3 py-2 text-sm font-mono uppercase tracking-widest focus:outline-none focus:border-accent transition-colors placeholder:normal-case placeholder:tracking-normal"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => applyCoupon(couponInput)}
+                                                disabled={couponLoading || !couponInput.trim()}
+                                                className="px-4 py-2 text-xs font-bold uppercase tracking-widest bg-accent-cta text-accent-cta-text rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40"
+                                            >
+                                                {couponLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Aplicar"}
+                                            </button>
+                                        </div>
+                                        {couponError && (
+                                            <p className="text-xs text-red-400 font-medium flex items-center gap-1">
+                                                <X className="w-3 h-3" /> Cupón inválido: {couponError}
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-emerald-500 font-semibold flex items-center gap-1">
+                                        ✓ Descuento aplicado: {couponData.discountPercent}% — {couponData.description}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="h-px bg-gray-200 w-full mb-6" />

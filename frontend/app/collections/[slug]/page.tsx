@@ -3,7 +3,7 @@ import { ProductListing } from "@/components/store/ProductListing";
 async function getCollectionProducts(slug: string) {
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'}/api/v1/products?tag=${slug}&limit=100`,
+      `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'}/api/v1/products?tags=${slug}&limit=100`,
       { cache: 'no-store' }
     );
     if (!res.ok) return { items: [] };

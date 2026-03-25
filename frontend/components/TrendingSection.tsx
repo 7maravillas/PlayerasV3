@@ -32,7 +32,7 @@ const TrendingSection = () => (
         </Link>
 
         {/* Card 2: Retro Kits */}
-        <Link href="/collections/retro-kits" className="group relative w-full h-[600px] bg-theme-surface overflow-hidden cursor-pointer block rounded-lg">
+        <Link href="/collections/retro" className="group relative w-full h-[600px] bg-theme-surface overflow-hidden cursor-pointer block rounded-lg">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="https://res.cloudinary.com/dcwyl56kj/image/upload/v1772738188/adi-retro-feds-6-min_lmgrb5.jpg"

@@ -120,7 +120,7 @@ a {
   animation: marquee-x var(--duration) infinite linear;
 }
 
-/* ✅ Esto apunta correctamente a los hijos que tienen la animación */
+/* Esto apunta correctamente a los hijos que tienen la animación */
 .marquee-reverse .animate-marquee-horizontal {
   animation-direction: reverse !important;
 }

@@ -59,8 +59,6 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
   // Carrusel "Productos que te pueden gustar"
   const [carouselProducts, setCarouselProducts] = useState<any[]>([]);
   const [carouselLoading, setCarouselLoading] = useState(true);
-  const [canPrev, setCanPrev] = useState(false);
-  const [canNext, setCanNext] = useState(false);
   const carouselRef = useRef<HTMLDivElement>(null);
 
   // ======= LÓGICA REACTIVA DE VARIANTES =======
@@ -107,11 +105,13 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
   // Precios dinámicos con extras
   const EXTRA_LONG_SLEEVE = 50;   // +$50 MXN
   const EXTRA_PATCH = 40;         // +$40 MXN
+  const EXTRA_PLAYER = 80;        // +$80 MXN
   const rawBase = (selectedVariant || sizeVariant)?.priceCents
     ? (selectedVariant || sizeVariant).priceCents / 100 : product?.price || 0;
   const sleeveExtra = selectedSleeve === 'LONG' ? EXTRA_LONG_SLEEVE : 0;
   const patchExtra = selectedPatch !== 'none' ? EXTRA_PATCH : 0;
-  const basePrice = rawBase + sleeveExtra + patchExtra;
+  const playerExtra = selectedVersion === 'player' ? EXTRA_PLAYER : 0;
+  const basePrice = rawBase + sleeveExtra + patchExtra + playerExtra;
   const displayPrice = isCustomized ? basePrice + customizationPrice : basePrice;
   const compareAtPrice = (selectedVariant || sizeVariant)?.compareAtPriceCents
     ? (selectedVariant || sizeVariant).compareAtPriceCents / 100 : product?.compareAtPrice || 0;
@@ -149,14 +149,15 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
           : [];
         setCarouselProducts(filtered);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setCarouselLoading(false));
   }, [productId]);
 
+  // Inicializar carrusel en el centro del set duplicado
   useEffect(() => {
     const el = carouselRef.current;
-    if (!el) return;
-    setCanNext(el.scrollWidth > el.clientWidth + 4);
+    if (!el || carouselProducts.length === 0) return;
+    el.scrollLeft = el.scrollWidth / 3;
   }, [carouselLoading, carouselProducts]);
 
   const scrollCarousel = (dir: 1 | -1) => {
@@ -170,8 +171,9 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
   const onCarouselScroll = () => {
     const el = carouselRef.current;
     if (!el) return;
-    setCanPrev(el.scrollLeft > 4);
-    setCanNext(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    const oneSet = el.scrollWidth / 3;
+    if (el.scrollLeft >= oneSet * 2) el.scrollLeft -= oneSet;
+    else if (el.scrollLeft <= 50) el.scrollLeft += oneSet;
   };
 
   if (loading || !mounted) {
@@ -233,6 +235,14 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
               </span>
             )}
           </div>
+          {(() => {
+            const pts = Math.floor(basePrice / 4);
+            return pts > 0 ? (
+              <p className="text-xs text-[#b8860b] font-semibold mt-1 flex items-center gap-1">
+                Gana ~{pts} puntos con esta compra
+              </p>
+            ) : null;
+          })()}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] xl:grid-cols-[1.5fr_1fr] gap-12 lg:gap-16">
@@ -337,7 +347,18 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
                         <ShieldCheck className="w-6 h-6 text-accent mx-auto mb-2" />
                         <p className="text-[10px] font-bold uppercase text-th-secondary">Oficial</p>
                       </div>
-                      <div className="bg-theme-card p-4 rounded-xl text-center border border-th-border/10">
+                      <div
+                        className="bg-theme-card p-4 rounded-xl text-center border border-th-border/10 cursor-pointer hover:border-accent/40 transition-colors"
+                        onClick={() => {
+                          const url = window.location.href;
+                          const title = product?.name ?? 'Playera';
+                          if (navigator.share) {
+                            navigator.share({ title, url }).catch(() => { });
+                          } else {
+                            navigator.clipboard.writeText(url).then(() => alert('Enlace copiado'));
+                          }
+                        }}
+                      >
                         <Share2 className="w-6 h-6 text-accent mx-auto mb-2" />
                         <p className="text-[10px] font-bold uppercase text-th-secondary">Compartir</p>
                       </div>
@@ -372,6 +393,14 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
                   </span>
                 )}
               </div>
+              {(() => {
+                const pts = Math.floor(basePrice / 4);
+                return pts > 0 ? (
+                  <p className="text-xs text-[#b8860b] font-semibold mt-1 flex items-center gap-1">
+                    Gana ~{pts} puntos con esta compra
+                  </p>
+                ) : null;
+              })()}
             </div>
 
             <div className="h-px w-full bg-th-border/10 my-4" />
@@ -428,8 +457,8 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
                       key={ver}
                       onClick={() => setSelectedVersion(ver)}
                       className={`h-10 border rounded-sm font-medium uppercase tracking-widest text-xs relative transition-all ${selectedVersion === ver
-                          ? 'border-black text-black shadow-sm ring-1 ring-black'
-                          : 'border-th-border/60 text-gray-500 hover:border-gray-400 hover:text-gray-700'
+                        ? 'border-black text-black shadow-sm ring-1 ring-black'
+                        : 'border-th-border/60 text-gray-500 hover:border-gray-400 hover:text-gray-700'
                         }`}
                     >
                       {ver === 'fan' ? 'Fan' : 'Player'}
@@ -455,8 +484,8 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
                       key={sl}
                       onClick={() => setSelectedSleeve(sl)}
                       className={`h-10 border rounded-sm font-medium uppercase tracking-widest text-xs relative transition-all ${selectedSleeve === sl
-                          ? 'border-black text-black shadow-sm ring-1 ring-black'
-                          : 'border-th-border/60 text-gray-500 hover:border-gray-400 hover:text-gray-700'
+                        ? 'border-black text-black shadow-sm ring-1 ring-black'
+                        : 'border-th-border/60 text-gray-500 hover:border-gray-400 hover:text-gray-700'
                         }`}
                     >
                       {sl === 'SHORT' ? 'Manga Corta' : 'Manga Larga'}
@@ -477,8 +506,8 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
                     key={p}
                     onClick={() => setSelectedPatch(p)}
                     className={`h-10 border rounded-sm font-medium uppercase tracking-widest text-[10px] transition-all ${selectedPatch === p
-                        ? 'border-black text-black shadow-sm ring-1 ring-black'
-                        : 'border-th-border/60 text-gray-500 hover:border-gray-400 hover:text-gray-700'
+                      ? 'border-black text-black shadow-sm ring-1 ring-black'
+                      : 'border-th-border/60 text-gray-500 hover:border-gray-400 hover:text-gray-700'
                       }`}
                   >
                     {p === 'none' ? 'Sin Parches' : 'Con Parches'}
@@ -659,98 +688,92 @@ export default function ProductDetailClient({ productId, initialProduct }: Props
 
       {/* ═══ CARRUSEL: Productos que te pueden gustar ═══ */}
       <section className="py-12 px-4 sm:px-6 lg:px-8 max-w-[1400px] mx-auto overflow-hidden">
-          <div className="flex flex-col items-center justify-center mb-10 text-center">
-            <h2 className="text-3xl sm:text-4xl font-black italic tracking-tighter text-black uppercase">
-              Productos que te pueden gustar
-            </h2>
-          </div>
+        <div className="flex flex-col items-center justify-center mb-10 text-center">
+          <h2 className="text-3xl sm:text-4xl font-black italic tracking-tighter text-black uppercase">
+            Productos que te pueden gustar
+          </h2>
+        </div>
 
-          <div className="relative group/carousel">
-            {/* BOTONES FLOTANTES */}
-            <button
-              onClick={() => scrollCarousel(-1)}
-              disabled={!canPrev}
-              className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/80 backdrop-blur-md border border-neutral-200 shadow-xl hover:bg-black hover:text-white hover:border-black transition-all duration-300 -ml-4 md:-ml-6 ${
-                canPrev ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
-              }`}
-              aria-label="Anterior"
-            >
-              <ChevronLeft size={24} />
-            </button>
+        <div className="relative group/carousel">
+          {/* BOTONES FLOTANTES */}
+          <button
+            onClick={() => scrollCarousel(-1)}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/80 backdrop-blur-md border border-neutral-200 shadow-xl hover:bg-black hover:text-white hover:border-black transition-all duration-300 -ml-4 md:-ml-6"
+            aria-label="Anterior"
+          >
+            <ChevronLeft size={24} />
+          </button>
 
-            <button
-              onClick={() => scrollCarousel(1)}
-              disabled={!canNext}
-              className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/80 backdrop-blur-md border border-neutral-200 shadow-xl hover:bg-black hover:text-white hover:border-black transition-all duration-300 -mr-4 md:-mr-6 ${
-                canNext ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
-              }`}
-              aria-label="Siguiente"
-            >
-              <ChevronRight size={24} />
-            </button>
+          <button
+            onClick={() => scrollCarousel(1)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/80 backdrop-blur-md border border-neutral-200 shadow-xl hover:bg-black hover:text-white hover:border-black transition-all duration-300 -mr-4 md:-mr-6"
+            aria-label="Siguiente"
+          >
+            <ChevronRight size={24} />
+          </button>
 
-            <div
-              ref={carouselRef}
-              onScroll={onCarouselScroll}
-              className="flex gap-4 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-2"
-            >
+          <div
+            ref={carouselRef}
+            onScroll={onCarouselScroll}
+            className="flex gap-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-2"
+          >
             {carouselLoading
               ? Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="flex-none w-[45%] md:w-[23%]">
-                    <div className="aspect-square rounded-2xl bg-neutral-100 animate-pulse mb-3" />
-                    <div className="h-3 rounded bg-neutral-100 animate-pulse mb-2 w-4/5" />
-                    <div className="h-3 rounded bg-neutral-100 animate-pulse w-2/5" />
-                  </div>
-                ))
-              : carouselProducts.map(p => {
-                  const price = (p.variants?.[0]?.priceCents ?? 0) / 100;
-                  const compare = (p.variants?.[0]?.compareAtPriceCents ?? 0) / 100;
-                  const isSale = compare > 0 && compare > price;
-                  const imgUrl = p.images?.[0]?.url ?? p.imageUrl ?? '';
+                <div key={i} className="flex-none w-[45%] md:w-[23%]">
+                  <div className="aspect-square rounded-2xl bg-neutral-100 animate-pulse mb-3" />
+                  <div className="h-3 rounded bg-neutral-100 animate-pulse mb-2 w-4/5" />
+                  <div className="h-3 rounded bg-neutral-100 animate-pulse w-2/5" />
+                </div>
+              ))
+              : [...carouselProducts, ...carouselProducts, ...carouselProducts].map((p, idx) => {
+                const price = (p.variants?.[0]?.priceCents ?? 0) / 100;
+                const compare = (p.variants?.[0]?.compareAtPriceCents ?? 0) / 100;
+                const isSale = compare > 0 && compare > price;
+                const imgUrl = p.images?.[0]?.url ?? p.imageUrl ?? '';
 
-                  return (
-                    <Link
-                      key={p.id}
-                      href={`/product/${p.id}`}
-                      className="flex-none w-[45%] md:w-[23%] group"
-                    >
-                      <div className="aspect-square relative overflow-hidden rounded-2xl bg-neutral-100 border border-neutral-200/60 mb-3 hover:shadow-lg hover:shadow-neutral-200/50 transition-shadow duration-300">
-                        {imgUrl ? (
-                          <Image
-                            src={imgUrl}
-                            alt={p.name}
-                            fill
-                            sizes="(max-width: 768px) 45vw, 23vw"
-                            className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 bg-neutral-100 animate-pulse" />
-                        )}
-                      </div>
-                      <h3 className="text-sm text-neutral-900 font-medium leading-snug group-hover:underline line-clamp-2 mb-1">
-                        {p.name}
-                      </h3>
-                      <div className="flex items-center gap-1.5">
-                        {isSale ? (
-                          <>
-                            <span className="text-xs text-neutral-400 line-through">
-                              ${compare.toFixed(2).replace(/\.00$/, '')}
-                            </span>
-                            <span className="text-sm font-bold text-red-500">
-                              ${price.toFixed(2).replace(/\.00$/, '')}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-sm font-semibold text-neutral-900">
-                            {price > 0 ? `$${price.toFixed(2).replace(/\.00$/, '')}` : '—'}
+                return (
+                  <Link
+                    key={`${p.id}-${idx}`}
+                    href={`/product/${p.id}`}
+                    className="flex-none w-[45%] md:w-[23%] group"
+                  >
+                    <div className="aspect-square relative overflow-hidden rounded-2xl bg-neutral-100 border border-neutral-200/60 mb-3 hover:shadow-lg hover:shadow-neutral-200/50 transition-shadow duration-300">
+                      {imgUrl ? (
+                        <Image
+                          src={imgUrl}
+                          alt={p.name}
+                          fill
+                          sizes="(max-width: 768px) 45vw, 23vw"
+                          className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-neutral-100 animate-pulse" />
+                      )}
+                    </div>
+                    <h3 className="text-sm text-neutral-900 font-medium leading-snug group-hover:underline line-clamp-2 mb-1">
+                      {p.name}
+                    </h3>
+                    <div className="flex items-center gap-1.5">
+                      {isSale ? (
+                        <>
+                          <span className="text-xs text-neutral-400 line-through">
+                            ${compare.toFixed(2).replace(/\.00$/, '')}
                           </span>
-                        )}
-                      </div>
-                    </Link>
-                  );
-                })}
-            </div>
+                          <span className="text-sm font-bold text-red-500">
+                            ${price.toFixed(2).replace(/\.00$/, '')}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-sm font-semibold text-neutral-900">
+                          {price > 0 ? `$${price.toFixed(2).replace(/\.00$/, '')}` : '—'}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
           </div>
+        </div>
       </section>
 
     </div>

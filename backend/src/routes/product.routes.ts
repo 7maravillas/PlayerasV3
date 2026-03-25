@@ -440,7 +440,21 @@ router.put('/products/:id', requireAuth, async (req, res, next) => {
             }
         });
 
-        res.json({ success: true });
+        // Retornar el producto actualizado
+        const updated = await prisma.product.findUnique({
+            where: { id },
+            include: {
+                images: { orderBy: { sortOrder: 'asc' } },
+                variants: true,
+                tags: true,
+                category: true,
+            },
+        });
+
+        res.json({
+            success: true,
+            data: updated,
+        });
     } catch (error) {
         next(error);
     }

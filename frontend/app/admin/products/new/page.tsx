@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Upload, Loader2, Tag, Search, ChevronLeft, ChevronRight, Shield, Plus, Trash2, Check } from "lucide-react";
+import { ArrowLeft, Save, Upload, Loader2, Tag, Search, ChevronLeft, ChevronRight, Shield, Plus, Trash2, Check, Star } from "lucide-react";
 import Link from "next/link";
 import ImageUploadWidget from "@/components/admin/ImageUploadWidget";
 import { api } from "@/lib/api";
@@ -40,6 +40,8 @@ export default function NewProductPage() {
     clubId: "",
     tagIds: [] as string[],
     globalAllowsNameNumber: true,
+    earnPoints: true,
+    redeemMaxQty: "" as string, // "" = sin límite (null), "0" = no canjeable, "1"+ = límite
   });
 
   // Global gender & color (aplica a todas las variantes)
@@ -194,6 +196,8 @@ export default function NewProductPage() {
         categoryId: formData.categoryId || undefined,
         seasonId: formData.seasonId || undefined,
         brand: formData.brand || undefined,
+        earnPoints: formData.earnPoints,
+        redeemMaxQty: formData.redeemMaxQty === "" ? null : parseInt(formData.redeemMaxQty as string),
         variants: variants.map((v, i) => ({
           sku: v.sku || `SKU-${Date.now().toString(36)}-${i}`,
           size: v.size,
@@ -485,6 +489,37 @@ export default function NewProductPage() {
             </label>
           </div>
 
+          {/* RECOMPENSAS */}
+          <div className="bg-white border border-amber-400/20 p-6 rounded-xl space-y-4">
+            <h3 className="text-amber-600 font-bold uppercase flex items-center gap-2">
+              <Star className="w-4 h-4 fill-current" /> Recompensas
+            </h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Acumula puntos al comprar</p>
+                <p className="text-xs text-slate-400">¿Esta compra genera puntos de recompensa?</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={formData.earnPoints} onChange={(e) => setFormData({ ...formData, earnPoints: e.target.checked })} className="sr-only peer" />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+              </label>
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                Máx. unidades canjeables con puntos
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={formData.redeemMaxQty}
+                onChange={(e) => setFormData({ ...formData, redeemMaxQty: e.target.value })}
+                placeholder="Vacío = sin límite | 0 = no canjeable | 1 = máx 1"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-800 text-sm focus:border-amber-400 outline-none"
+              />
+              <p className="text-xs text-slate-400 mt-1">Vacío = ilimitado (jerseys). 1 = max 1 con puntos (llaveros, balones).</p>
+            </div>
+          </div>
+
           {/* NUEVA SECCIÓN: GENERADOR DE VARIANTES */}
           <div className="bg-white border border-slate-100 p-6 rounded-xl space-y-4">
             <div className="flex justify-between items-center mb-4">
@@ -573,11 +608,6 @@ export default function NewProductPage() {
                       <input type="checkbox" checked={v.isDropshippable} onChange={e => handleVariantChange(v.id, "isDropshippable", e.target.checked)} className="w-4 h-4 accent-indigo-500" />
                     </div>
                     <div className="col-span-2 flex flex-col gap-2">
-                      <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded border border-slate-100">
-                        <label className="text-xs text-slate-600 font-bold truncate">Permite Envío Dropshipping</label>
-                        <input type="checkbox" checked={v.isDropshippable} onChange={e => handleVariantChange(v.id, "isDropshippable", e.target.checked)} className="w-4 h-4 accent-indigo-500 flex-shrink-0" />
-                      </div>
-
                       {formData.globalAllowsNameNumber && (
                         <div className="flex flex-col gap-2 bg-indigo-500/5 px-3 py-2 rounded border border-indigo-400/20">
                           <div className="flex items-center justify-between">
