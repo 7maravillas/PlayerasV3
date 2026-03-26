@@ -50,7 +50,7 @@ router.get('/admin/stock', requireAuth, async (_req: Request, res: Response) => 
     });
 
     // Para cada variante, calcular unidades vendidas desde órdenes confirmadas
-    const variantIds = products.flatMap(p => p.variants.map(v => v.id));
+    const variantIds = products.flatMap(p => p.variants.map(v => v.id)) as string[];
 
     // Agrupa la suma de quantity por variantId en órdenes pagadas/en proceso/enviadas/entregadas
     const soldAgg = await prisma.orderItem.groupBy({
@@ -64,7 +64,7 @@ router.get('/admin/stock', requireAuth, async (_req: Request, res: Response) => 
 
     const soldMap: Record<string, number> = {};
     for (const row of soldAgg) {
-      if (row.variantId) soldMap[row.variantId] = row._sum.quantity ?? 0;
+      if (row.variantId) soldMap[row.variantId] = row._sum?.quantity ?? 0;
     }
 
     const result = products.map(p => ({
@@ -177,7 +177,7 @@ router.get('/admin/stock/report/pdf', requireAuth, async (_req: Request, res: Re
     });
     const soldMap: Record<string, number> = {};
     for (const row of soldAgg) {
-      if (row.variantId) soldMap[row.variantId] = row._sum.quantity ?? 0;
+      if (row.variantId) soldMap[row.variantId] = row._sum?.quantity ?? 0;
     }
 
     const reportData = products.map(p => ({
