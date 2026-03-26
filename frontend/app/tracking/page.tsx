@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import TrackingClient from "./TrackingClient";
 
 export const metadata: Metadata = {
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
 
 export default function TrackingPage() {
   return (
-    <TrackingClient />
+    <Suspense>
+      <TrackingClient />
+    </Suspense>
   );
 }
