@@ -326,7 +326,7 @@ const Navbar = () => {
             <Link href="/" className="flex items-center gap-1 group">
               <span className={`text-2xl font-black italic tracking-tighter transition-colors duration-500 group-hover:opacity-80 ${solid ? 'text-th-primary' : 'text-white'
                 }`}>JERSEYS</span>
-              <span className="text-2xl font-black italic tracking-tighter text-accent">RAW</span>
+              <span className={`text-2xl font-black italic tracking-tighter transition-colors duration-500 group-hover:opacity-80 ${solid ? 'text-accent' : 'text-accent'}`}>RAW</span>
             </Link>
 
             {/* MENÚ */}

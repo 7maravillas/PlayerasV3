@@ -131,30 +131,33 @@ const ProductCarousel = () => {
             {INFINITE_PRODUCTS.map((product, index) => (
               <div
                 key={`${product.id}-${index}`}
-                className="w-80 flex-shrink-0 snap-start group"
+                className="w-80 lg:w-[calc(25%-12px)] flex-shrink-0 snap-start group flex flex-col h-[440px]"
               >
-                {/* IMAGEN */}
-                <Link href={`/catalog?clubs=${product.slug}`} className="block relative h-80 w-full overflow-hidden cursor-pointer">
+                {/* IMAGEN — ocupa el espacio disponible */}
+                <Link href={`/catalog?clubs=${product.slug}`} className="block relative flex-1 min-h-0 overflow-hidden cursor-pointer rounded-lg">
                   <img
                     src={product.img}
                     alt={product.name}
-                    className={`w-full h-full object-cover transition-all duration-500 ${product.imgHover ? 'group-hover:opacity-0' : 'group-hover:scale-105'
-                      }`}
+                    className={`w-full h-full object-cover transition-all duration-500 rounded-lg ${product.imgHover ? 'group-hover:opacity-0' : 'group-hover:scale-105'}`}
                   />
                   {product.imgHover && (
                     <img
                       src={product.imgHover}
                       alt={`${product.name} - vista alternativa`}
-                      className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                      className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-lg"
                     />
                   )}
                 </Link>
 
-                {/* INFO + BOTÓN COMPRAR */}
-                <div className="pt-3 pb-2 text-center">
-                  <h3 className="font-bold text-base leading-tight text-th-primary mb-5">
+                {/* NOMBRE */}
+                <div className="pt-3 text-center">
+                  <h3 className="font-bold text-base leading-tight text-th-primary">
                     {product.name}
                   </h3>
+                </div>
+
+                {/* BOTÓN al fondo con pequeño espacio */}
+                <div className="pt-2 pb-3 text-center">
                   <Link
                     href={`/catalog?clubs=${product.slug}`}
                     className="inline-flex items-center justify-center px-14 py-2.5 bg-gradient-to-b from-[#f8c889] via-[#fbc57d] to-[#fec375] text-black rounded-full font-semibold text-sm hover:opacity-90 transition-opacity"

@@ -20,10 +20,10 @@
   /* #111111 */
   --text-secondary: 107 107 107;
   /* #6B6B6B */
-  --accent: 0 0 0;
-  /* #000000 */
-  --accent-hover: 51 51 51;
-  /* #333333 */
+  --accent: 248 195 124;
+  /* #F8C37C */
+  --accent-hover: 220 165 90;
+  /* #DCA55A */
   --accent-cta: 206 255 0;
   /* #CEFF00 (Volt) */
   --accent-cta-text: 0 0 0;

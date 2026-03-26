@@ -44,9 +44,6 @@ export const CreateOrderSchema = z.object({
         .array(OrderItemSchema)
         .min(1, 'Debe tener al menos 1 producto'),
 
-    // Puntos de recompensa (opcional)
-    rewardPointsToRedeem: z.coerce.number().int().min(0).optional().default(0),
-
     // Cupón de descuento (opcional)
     couponCode: z.string().max(50).optional().nullable(),
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
-import { Gift, Loader2, Save, ToggleLeft, ToggleRight, TrendingUp, Users } from "lucide-react";
+import { Gift, Loader2, Save, ToggleLeft, ToggleRight, TrendingUp, Users, Tag, Check, X } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface RewardConfig {
@@ -18,6 +18,16 @@ interface RewardStats {
   totalUsers: number;
 }
 
+interface Redemption {
+  id: string;
+  couponCode: string;
+  pointsUsed: number;
+  status: "PENDING" | "USED" | "EXPIRED";
+  createdAt: string;
+  expiresAt: string;
+  user: { id: string; name: string | null; email: string };
+}
+
 export default function AdminRewardsPage() {
   const [config, setConfig] = useState<RewardConfig | null>(null);
   const [stats, setStats] = useState<RewardStats | null>(null);
@@ -25,6 +35,8 @@ export default function AdminRewardsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [redemptions, setRedemptions] = useState<Redemption[]>([]);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   // Form state
   const [enabled, setEnabled] = useState(true);
@@ -36,18 +48,32 @@ export default function AdminRewardsPage() {
     Promise.all([
       api.get("/api/v1/admin/rewards/config", { auth: true }),
       api.get("/api/v1/admin/rewards/stats", { auth: true }).catch(() => null),
+      api.get("/api/v1/admin/rewards/redemptions", { auth: true }).catch(() => []),
     ])
-      .then(([cfg, st]) => {
+      .then(([cfg, st, redemps]) => {
         setConfig(cfg);
         setEnabled(cfg.enabled);
         setCentsPerPoint(cfg.centsPerPoint);
         setPointValueCents(cfg.pointValueCents);
         setGoalPoints(cfg.goalPoints);
         if (st) setStats(st);
+        if (Array.isArray(redemps)) setRedemptions(redemps);
       })
       .catch(() => setError("No se pudo cargar la configuración"))
       .finally(() => setLoading(false));
   }, []);
+
+  const updateRedemptionStatus = async (id: string, status: "USED" | "EXPIRED") => {
+    setUpdatingId(id);
+    try {
+      await api.put(`/api/v1/admin/rewards/redemptions/${id}/status`, { status }, { auth: true });
+      setRedemptions((prev) => prev.map((r) => r.id === id ? { ...r, status } : r));
+    } catch {
+      // silencio
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -245,6 +271,86 @@ export default function AdminRewardsPage() {
           {saving ? "Guardando..." : "Guardar configuración"}
         </button>
       </form>
+
+      {/* ── CANJES PENDIENTES ── */}
+      <div className="bg-white border border-slate-100 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Tag className="w-5 h-5 text-amber-500" />
+          <h2 className="text-lg font-black text-slate-800">Canjes de Jersey Gratis</h2>
+          <span className="ml-auto text-xs font-bold bg-amber-50 text-amber-600 border border-amber-100 rounded-full px-3 py-1">
+            {redemptions.filter(r => r.status === "PENDING").length} pendientes
+          </span>
+        </div>
+
+        {redemptions.length === 0 ? (
+          <p className="text-sm text-slate-400 py-6 text-center">No hay canjes registrados aún.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="text-left text-xs font-bold uppercase tracking-widest text-slate-400 pb-3">Usuario</th>
+                  <th className="text-left text-xs font-bold uppercase tracking-widest text-slate-400 pb-3">Código cupón</th>
+                  <th className="text-left text-xs font-bold uppercase tracking-widest text-slate-400 pb-3">Pts</th>
+                  <th className="text-left text-xs font-bold uppercase tracking-widest text-slate-400 pb-3">Fecha</th>
+                  <th className="text-left text-xs font-bold uppercase tracking-widest text-slate-400 pb-3">Estado</th>
+                  <th className="pb-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {redemptions.map((r) => (
+                  <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="py-3 pr-4">
+                      <p className="font-semibold text-slate-800 truncate max-w-[140px]">{r.user.name || "Sin nombre"}</p>
+                      <p className="text-xs text-slate-400 truncate max-w-[140px]">{r.user.email}</p>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span className="font-mono text-xs font-bold tracking-widest text-amber-600 bg-amber-50 rounded-lg px-2 py-1">
+                        {r.couponCode}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 font-bold text-slate-700">{r.pointsUsed}</td>
+                    <td className="py-3 pr-4 text-xs text-slate-400">
+                      {new Date(r.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "2-digit" })}
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span className={`text-xs font-bold uppercase tracking-wide rounded-full px-2.5 py-1 ${
+                        r.status === "PENDING" ? "bg-yellow-50 text-yellow-600 border border-yellow-100" :
+                        r.status === "USED" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                        "bg-red-50 text-red-400 border border-red-100"
+                      }`}>
+                        {r.status === "PENDING" ? "Pendiente" : r.status === "USED" ? "Entregado" : "Expirado"}
+                      </span>
+                    </td>
+                    <td className="py-3">
+                      {r.status === "PENDING" && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => updateRedemptionStatus(r.id, "USED")}
+                            disabled={updatingId === r.id}
+                            title="Marcar como entregado"
+                            className="p-1.5 rounded-lg bg-emerald-50 text-emerald-500 hover:bg-emerald-100 transition-colors disabled:opacity-40"
+                          >
+                            {updatingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => updateRedemptionStatus(r.id, "EXPIRED")}
+                            disabled={updatingId === r.id}
+                            title="Expirar"
+                            className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 transition-colors disabled:opacity-40"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

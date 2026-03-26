@@ -1,10 +1,21 @@
 // backend/src/routes/auth.routes.ts
 import { Router } from 'express';
+import { randomInt } from 'crypto';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/mailer.js';
 import { hashPassword, verifyPassword, generateToken } from '../lib/auth.js';
 import { requireAuth } from '../middlewares/requireAuth.js';
+
+/* ─── Rate limiter estricto para endpoints OTP (10 intentos / 15 min por IP) ─── */
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Demasiados intentos. Espera 15 minutos antes de volver a intentarlo.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const router = Router();
 
@@ -37,7 +48,7 @@ const ResetPasswordSchema = z.object({
 
 // Helpers
 function genCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 1000000).toString();
 }
 
 // POST /api/v1/auth/register
@@ -55,6 +66,21 @@ router.post('/register', async (req, res, next) => {
       data: { email, passwordHash, name },
     });
 
+    // Bono de bienvenida: 500 puntos de recompensa
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        rewardPoints: 500,
+        rewardHistory: {
+          create: {
+            type: 'EARN',
+            points: 500,
+            description: 'Bono de bienvenida — ¡Gracias por registrarte!',
+          },
+        },
+      },
+    });
+
     const code = genCode();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
@@ -70,7 +96,7 @@ router.post('/register', async (req, res, next) => {
 });
 
 // POST /api/v1/auth/verify-email
-router.post('/verify-email', async (req, res, next) => {
+router.post('/verify-email', otpLimiter, async (req, res, next) => {
   try {
     const parsed = VerifyEmailSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
@@ -167,7 +193,7 @@ router.put('/me', requireAuth, async (req, res, next) => {
 });
 
 // POST /api/v1/auth/forgot-password
-router.post('/forgot-password', async (req, res, next) => {
+router.post('/forgot-password', otpLimiter, async (req, res, next) => {
   try {
     const parsed = ForgotPasswordSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
@@ -198,7 +224,7 @@ router.post('/forgot-password', async (req, res, next) => {
 });
 
 // POST /api/v1/auth/reset-password
-router.post('/reset-password', async (req, res, next) => {
+router.post('/reset-password', otpLimiter, async (req, res, next) => {
   try {
     const parsed = ResetPasswordSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });

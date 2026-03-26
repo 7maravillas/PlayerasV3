@@ -126,7 +126,8 @@ function resolveImg(raw: string | undefined | null, w = 300): string {
 // RELEVANCIA
 // ══════════════════════════════════════════════════════════════
 
-const PAGE_SIZE = 8;
+const INITIAL_COUNT = 8;
+const LOAD_MORE = 3;
 
 /** Puntuación de relevancia: foto buena + comentario escrito + 5 estrellas */
 function relevanceScore(r: Review): number {
@@ -160,7 +161,7 @@ export default function ReviewsSection({
   const [sortBy, setSortBy] = useState<"relevance" | "recent" | "highest" | "lowest" | "photo">("relevance");
   const [showStarsDropdown, setShowStarsDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [page, setPage] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -178,7 +179,7 @@ export default function ReviewsSection({
 
   // ── Fetch reviews + stats ──
   useEffect(() => {
-    setPage(0);
+    setVisibleCount(INITIAL_COUNT);
     const params = activeFilter ? `?stars=${activeFilter}` : "";
     Promise.all([
       fetch(`${API_BASE}/api/v1/reviews${params}`).then((r) => r.json()),
@@ -237,7 +238,7 @@ export default function ReviewsSection({
   };
 
   const sortedReviews = useMemo(() => {
-    setPage(0);
+    setVisibleCount(INITIAL_COUNT);
     const copy = [...reviews];
     switch (sortBy) {
       case "relevance":
@@ -263,8 +264,8 @@ export default function ReviewsSection({
     }
   }, [reviews, sortBy]);
 
-  const totalPages = Math.ceil(sortedReviews.length / PAGE_SIZE);
-  const pageReviews = sortedReviews.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const visibleReviews = sortedReviews.slice(0, visibleCount);
+  const hasMore = visibleCount < sortedReviews.length;
 
   if (loading) return null;
   if (!stats || !stats.total) return null;
@@ -381,8 +382,8 @@ export default function ReviewsSection({
 
       {/* ═══ MASONRY GRID — Social Feed Style ═══ */}
       {sortedReviews.length > 0 ? (
-        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-3">
-          {pageReviews.map((review) => (
+        <div className="columns-2 lg:columns-3 xl:columns-4 gap-3">
+          {visibleReviews.map((review) => (
             <article
               key={review.id}
               className="break-inside-avoid mb-3 bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:shadow-md transition-shadow duration-200"
@@ -470,41 +471,14 @@ export default function ReviewsSection({
         </div>
       ) : null}
 
-      {/* ═══ PAGINACIÓN ═══ */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3 mt-8">
+      {/* ═══ VER MÁS ═══ */}
+      {hasMore && (
+        <div className="text-center mt-6">
           <button
-            onClick={() => { setPage(p => p - 1); window.scrollTo({ top: (document.querySelector('section')?.offsetTop ?? 0) - 80, behavior: 'smooth' }); }}
-            disabled={page === 0}
-            className="p-2 rounded-full border border-neutral-200 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            aria-label="Página anterior"
+            onClick={() => setVisibleCount(v => v + LOAD_MORE)}
+            className="text-sm font-medium text-neutral-500 hover:text-neutral-900 transition-colors underline underline-offset-4 decoration-neutral-300 hover:decoration-neutral-900"
           >
-            <ChevronLeft size={16} />
-          </button>
-
-          <div className="flex items-center gap-1.5">
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => { setPage(i); window.scrollTo({ top: (document.querySelector('section')?.offsetTop ?? 0) - 80, behavior: 'smooth' }); }}
-                className={`w-7 h-7 rounded-full text-xs font-semibold transition-all ${
-                  i === page
-                    ? "bg-neutral-900 text-white"
-                    : "text-neutral-400 hover:text-neutral-900"
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => { setPage(p => p + 1); window.scrollTo({ top: (document.querySelector('section')?.offsetTop ?? 0) - 80, behavior: 'smooth' }); }}
-            disabled={page === totalPages - 1}
-            className="p-2 rounded-full border border-neutral-200 text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            aria-label="Página siguiente"
-          >
-            <ChevronRight size={16} />
+            Ver más reseñas
           </button>
         </div>
       )}
@@ -530,16 +504,6 @@ export default function ReviewsSection({
         </div>
       )}
 
-      {/* ═══ FLOATING CTA — Mobile ═══ */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 sm:hidden z-40">
-        <button
-          onClick={handleOpenForm}
-          className="flex items-center gap-2 bg-neutral-900 text-white font-medium text-sm py-3 px-7 rounded-full shadow-2xl hover:bg-neutral-800 transition-colors"
-        >
-          <PenLine size={14} />
-          Escribe una reseña
-        </button>
-      </div>
 
       {/* ═══ MODAL: Formulario ═══ */}
       {showForm && (

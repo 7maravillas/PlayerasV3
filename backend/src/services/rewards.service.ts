@@ -1,4 +1,5 @@
 // src/services/rewards.service.ts
+import { randomBytes } from 'crypto';
 import { prisma } from '../lib/prisma.js';
 
 // ── Config desde DB (singleton, defaults si no existe) ──────
@@ -39,7 +40,7 @@ export async function earnPoints(
     return sum + item.unitPriceCents * item.quantity;
   }, 0);
 
-  const earned = Math.floor(eligibleCents / config.centsPerPoint);
+  const earned = Math.round(eligibleCents / config.centsPerPoint);
   if (earned <= 0) return 0;
 
   await prisma.$transaction([
@@ -81,69 +82,73 @@ export async function getHistory(userId: string) {
   });
 }
 
-// ── Validar y calcular descuento por canje ───────────────────
-// Devuelve cuántos centavos de descuento aplican según:
-//   - saldo del usuario
-//   - puntos solicitados
-//   - items elegibles (redeemMaxQty por producto)
-export async function calculateRedeemDiscount(
+// ── Canjear puntos por jersey gratis (genera cupón de $550) ─────
+export async function redeemForFreeJersey(
   userId: string,
-  pointsToRedeem: number,
-  orderItems: { productId: string | null; unitPriceCents: number; quantity: number }[],
-): Promise<{ discountCents: number; pointsUsed: number; error?: string }> {
-  if (pointsToRedeem <= 0) return { discountCents: 0, pointsUsed: 0 };
-
+): Promise<{ couponCode: string; expiresAt: Date }> {
   const config = await getRewardConfig();
   if (!config.enabled) {
-    return { discountCents: 0, pointsUsed: 0, error: 'El programa de recompensas está desactivado' };
+    throw new Error('El programa de recompensas está desactivado');
   }
 
-  const { points: balance } = await getBalance(userId);
-  if (balance < pointsToRedeem) {
-    return { discountCents: 0, pointsUsed: 0, error: 'Saldo de puntos insuficiente' };
-  }
-
-  const productIds = orderItems.map((i) => i.productId).filter(Boolean) as string[];
-  const products = await prisma.product.findMany({
-    where: { id: { in: productIds } },
-    select: { id: true, redeemMaxQty: true },
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { rewardPoints: true },
   });
-  const productMap = new Map(products.map((p) => [p.id, p.redeemMaxQty]));
-
-  // Calcular total de centavos elegibles para descuento
-  const eligibleCents = orderItems.reduce((sum, item) => {
-    if (!item.productId) return sum;
-    const maxQty = productMap.get(item.productId);
-    if (maxQty === 0) return sum; // no canjeable
-    const eligibleQty = maxQty == null ? item.quantity : Math.min(item.quantity, maxQty);
-    return sum + item.unitPriceCents * eligibleQty;
-  }, 0);
-
-  if (eligibleCents <= 0) {
-    return { discountCents: 0, pointsUsed: 0, error: 'No hay productos elegibles para canjear puntos' };
+  if (!user) throw new Error('Usuario no encontrado');
+  if (user.rewardPoints < config.goalPoints) {
+    throw new Error(`Necesitas ${config.goalPoints} puntos. Tienes ${user.rewardPoints}.`);
   }
 
-  // El descuento no puede superar ni el total elegible ni los puntos solicitados
-  const maxDiscountCents = Math.min(pointsToRedeem * config.pointValueCents, eligibleCents);
-  const pointsUsed = Math.ceil(maxDiscountCents / config.pointValueCents);
+  // Generar código único
+  const code = `JERSEY-FREE-${randomBytes(4).toString('hex').toUpperCase()}`;
+  const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 días
 
-  return { discountCents: maxDiscountCents, pointsUsed };
+  await prisma.$transaction(async (tx) => {
+    // Crear cupón de $550 fijo
+    await tx.coupon.create({
+      data: {
+        code,
+        description: '¡Jersey gratis! Descuento de $550 por acumular puntos',
+        discountPercent: 0,
+        discountCents: 55000, // $550 MXN en centavos
+        usageLimit: 1,
+        expiresAt,
+        active: true,
+      },
+    });
+
+    // Crear registro de canje
+    await tx.rewardRedemption.create({
+      data: { userId, couponCode: code, pointsUsed: config.goalPoints, expiresAt },
+    });
+
+    // Descontar puntos
+    await tx.user.update({
+      where: { id: userId },
+      data: { rewardPoints: { decrement: config.goalPoints } },
+    });
+
+    // Registrar transacción
+    await tx.rewardTransaction.create({
+      data: {
+        userId,
+        type: 'REDEEM',
+        points: -config.goalPoints,
+        description: 'Canje por jersey gratis',
+      },
+    });
+  });
+
+  return { couponCode: code, expiresAt };
 }
 
-// ── Aplicar canje (descontar puntos del saldo) ───────────────
-export async function applyRedeem(
-  userId: string,
-  pointsUsed: number,
-  orderId: string,
-  description: string,
-): Promise<void> {
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      data: { rewardPoints: { decrement: pointsUsed } },
-    }),
-    prisma.rewardTransaction.create({
-      data: { userId, type: 'REDEEM', points: -pointsUsed, description, orderId },
-    }),
-  ]);
+// ── Listar canjes (admin) ─────────────────────────────────────
+export async function getRedemptions() {
+  return prisma.rewardRedemption.findMany({
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 }

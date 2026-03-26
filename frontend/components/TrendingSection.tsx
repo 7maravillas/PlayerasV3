@@ -9,17 +9,20 @@ const TrendingSection = () => (
     <div className="container mx-auto">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* Card 1: Street Style */}
-        <Link href="/collections/street-style" className="group relative w-full h-[600px] bg-theme-surface overflow-hidden cursor-pointer block rounded-lg">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="https://res.cloudinary.com/dcwyl56kj/image/upload/v1772738059/page-07682079-focus-0-0-1200-600_j6ojwg.webp"
-            alt="Street Style"
-            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700"
+        {/* Card 1: Mundial 2026 */}
+        <Link href="/collections/mundial" className="group relative w-full h-[600px] bg-theme-surface overflow-hidden cursor-pointer block rounded-lg">
+          <video
+            src="https://res.cloudinary.com/dcwyl56kj/video/upload/q_auto:best,w_1200/v1774488675/AQNh0b526gLNIqYSBOnrHGUxSk53NOErOZda43GZ5B9Aj1OWifXriUtVqKCDgQY6X7hvqUXL_qZJL1Jf-GkixSZkU5_oqxJH0zLw79A_oxhox7.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-700"
           />
           <div className="absolute bottom-12 w-full text-center">
-            <h4 className="text-3xl font-heading uppercase tracking-tight text-white drop-shadow-md">Street Style</h4>
-            <p className="text-gray-300 mt-2 mb-4 font-medium drop-shadow-sm">Del estadio a las calles.</p>
+            <h4 className="text-3xl font-heading uppercase tracking-tight text-white drop-shadow-md">Mundial 2026</h4>
+            <p className="text-gray-300 mt-2 mb-4 font-medium drop-shadow-sm">Lucete en esta Justa mundialista.</p>
             <HoverBorderGradient
               as="span"
               containerClassName="cursor-pointer"

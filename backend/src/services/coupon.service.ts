@@ -54,13 +54,17 @@ export async function validateCoupon(input: ValidateInput): Promise<ValidateResu
     }
   }
 
-  const discountCents = Math.floor(subtotalCents * coupon.discountPercent / 100);
+  const discountCents = coupon.discountCents
+    ? Math.min(coupon.discountCents, subtotalCents) // descuento fijo con tope al subtotal
+    : Math.floor(subtotalCents * coupon.discountPercent / 100); // descuento porcentual
 
   return {
     valid: true,
     discountCents,
     discountPercent: coupon.discountPercent,
-    description: coupon.description || `${coupon.discountPercent}% de descuento`,
+    description: coupon.description || (coupon.discountCents
+      ? `$${(coupon.discountCents / 100).toFixed(0)} de descuento`
+      : `${coupon.discountPercent}% de descuento`),
     couponId: coupon.id,
   };
 }

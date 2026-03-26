@@ -6,7 +6,7 @@ import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { prisma } from '../lib/prisma.js';
 import { sendOrderConfirmationEmail, sendAdminOrderNotification } from '../lib/mailer.js';
-import { earnPoints, applyRedeem } from '../services/rewards.service.js';
+import { earnPoints } from '../services/rewards.service.js';
 import { recordCouponUsage } from '../services/coupon.service.js';
 
 const router = Router();
@@ -111,18 +111,6 @@ router.post(
             ).catch((err) => {
               console.error(`⚠️  earnPoints fallido para orden ${orderNumber}:`, err);
             });
-
-            // Descontar puntos canjeados (diferido desde creación de orden)
-            if (paidOrder.rewardPointsUsed > 0) {
-              applyRedeem(
-                paidOrder.userId,
-                paidOrder.rewardPointsUsed,
-                paidOrder.id,
-                `Canje en orden ${orderNumber}`,
-              ).catch((err) => {
-                console.error(`⚠️  applyRedeem fallido para orden ${orderNumber}:`, err);
-              });
-            }
           }
 
           // Registrar uso de cupón si hay uno

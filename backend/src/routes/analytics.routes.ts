@@ -1,14 +1,23 @@
 // src/routes/analytics.routes.ts
 import { Router, Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middlewares/requireAuth.js';
 import { periodToDate, defaultGranularity } from '../lib/period.js';
 
 const router = Router();
 
+const viewLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => false,
+});
+
 /* ─── POST /api/v1/analytics/view — Registrar visita de producto (público) ─── */
-router.post('/analytics/view', async (req: Request, res: Response) => {
+router.post('/analytics/view', viewLimiter, async (req: Request, res: Response) => {
   const { productId } = req.body;
 
   if (!productId || typeof productId !== 'string') {
@@ -26,6 +35,7 @@ router.post('/analytics/view', async (req: Request, res: Response) => {
 
 /* ─── GET /api/v1/analytics/abandoned — Carritos abandonados (admin) ─── */
 router.get('/analytics/abandoned', requireAuth, async (_req: Request, res: Response) => {
+  if (!adminOnly(_req, res)) return;
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000); // Hace 24 horas
 
   try {
@@ -75,6 +85,7 @@ router.get('/analytics/views/:productId', requireAuth, async (req: Request, res:
 
 /* ─── GET /api/v1/analytics/dashboard — Métricas del dashboard (admin) ─── */
 router.get('/analytics/dashboard', requireAuth, async (_req: Request, res: Response) => {
+  if (!adminOnly(_req, res)) return;
   try {
     const paidStatuses = ['PAID', 'SHIPPED', 'DELIVERED'] as const;
 

@@ -1,10 +1,19 @@
 // src/routes/coupon.routes.ts
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middlewares/requireAuth.js';
 import { validateCoupon } from '../services/coupon.service.js';
 
 const router = Router();
+
+const couponValidateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { valid: false, error: 'Demasiadas solicitudes. Intenta en un momento.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /* ─── GET /coupons/announcement — cupón activo para el navbar ─── */
 router.get('/coupons/announcement', async (_req: Request, res: Response) => {
@@ -29,13 +38,16 @@ router.get('/coupons/announcement', async (_req: Request, res: Response) => {
 });
 
 /* ─── POST /coupons/validate ─── */
-router.post('/coupons/validate', async (req: Request, res: Response) => {
+router.post('/coupons/validate', couponValidateLimiter, async (req: Request, res: Response) => {
   try {
     const { code, subtotalCents, email } = req.body;
     if (!code || typeof subtotalCents !== 'number' || !email) {
       return res.status(400).json({ valid: false, error: 'Datos incompletos' });
     }
     const result = await validateCoupon({ code, subtotalCents, email });
+    if (!result.valid) {
+      return res.json({ valid: false, error: 'Cupón inválido o no aplicable' });
+    }
     res.json(result);
   } catch {
     res.status(500).json({ valid: false, error: 'Error al validar cupón' });

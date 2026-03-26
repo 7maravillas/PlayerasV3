@@ -8,7 +8,7 @@ import { CreateOrderSchema, UpdateOrderStatusSchema } from '../validators/order.
 import { SHIPPING } from '../config/shipping.js';
 import { generateOrderPDF } from '../services/pdf.service.js';
 import { generateReportPDF } from '../services/pdf.service.js';
-import { calculateRedeemDiscount, applyRedeem, earnPoints } from '../services/rewards.service.js';
+import { earnPoints } from '../services/rewards.service.js';
 import { validateCoupon, recordCouponUsage } from '../services/coupon.service.js';
 
 const router = Router();
@@ -79,47 +79,7 @@ router.post('/orders', createOrderLimiter, async (req: Request, res: Response) =
                 if (existing) {
                     resolvedId = existing.id;
                 } else {
-                    // 🔒 SEGURIDAD: Tomar precio de variantes existentes del mismo producto
-                    const referenceVariant = await prisma.productVariant.findFirst({
-                        where: { productId: item.productId },
-                        orderBy: { createdAt: 'asc' },
-                    });
-
-                    if (!referenceVariant) {
-                        return res.status(400).json({ error: `Producto ${item.productId} no tiene variantes de referencia` });
-                    }
-
-                    // Verificar que el producto existe
-                    const product = await prisma.product.findUnique({
-                        where: { id: item.productId },
-                        select: { slug: true },
-                    });
-
-                    if (!product) {
-                        return res.status(400).json({ error: `Producto ${item.productId} no encontrado` });
-                    }
-
-                    // Crear variante de dropshipping con precio SEGURO del backend
-                    const newVariant = await prisma.productVariant.create({
-                        data: {
-                            productId: item.productId,
-                            sku: `${product.slug}-${item.size}-DROP`.toUpperCase(),
-                            size: item.size,
-                            color: referenceVariant.color,
-                            audience: referenceVariant.audience,
-                            sleeve: referenceVariant.sleeve,
-                            priceCents: referenceVariant.priceCents,                     // 🔒 Precio del backend
-                            compareAtPriceCents: referenceVariant.compareAtPriceCents,     // 🔒 Precio del backend
-                            costCents: referenceVariant.costCents,
-                            stock: 0,
-                            isDropshippable: true,
-                            allowsNameNumber: referenceVariant.allowsNameNumber,
-                            customizationPrice: referenceVariant.customizationPrice,
-                            weightGrams: referenceVariant.weightGrams,
-                        },
-                    });
-
-                    resolvedId = newVariant.id;
+                    return res.status(400).json({ error: `La talla "${item.size}" no está disponible para este producto` });
                 }
             } else {
                 return res.status(400).json({ error: 'Item inválido: falta variantId o productId+size' });
@@ -152,26 +112,7 @@ router.post('/orders', createOrderLimiter, async (req: Request, res: Response) =
             }
         }
 
-        // 4b. Calcular descuento por puntos (antes de la transacción, necesita productIds)
-        const pointsToRedeem = data.rewardPointsToRedeem ?? 0;
-        let rewardDiscountCents = 0;
-        let rewardPointsUsed = 0;
-
-        if (pointsToRedeem > 0 && userId) {
-            const itemsForRewards = data.items.map((item, i) => ({
-                productId: variants.find(v => v.id === resolvedVariantIds[i])?.product?.id ?? null,
-                unitPriceCents: variantMap.get(resolvedVariantIds[i])?.priceCents ?? 0,
-                quantity: item.quantity,
-            }));
-            const redeemResult = await calculateRedeemDiscount(userId, pointsToRedeem, itemsForRewards);
-            if (redeemResult.error) {
-                return res.status(400).json({ error: redeemResult.error });
-            }
-            rewardDiscountCents = redeemResult.discountCents;
-            rewardPointsUsed = redeemResult.pointsUsed;
-        }
-
-        // 4c. Validar cupón de descuento (si se envió uno)
+        // 4b. Validar cupón de descuento (si se envió uno)
         let couponDiscountCents = 0;
         const couponCode = data.couponCode?.trim().toUpperCase() || null;
 
@@ -290,7 +231,7 @@ router.post('/orders', createOrderLimiter, async (req: Request, res: Response) =
                 shippingCents = localSubtotalCents >= SHIPPING.FREE_SHIPPING_MIN_CENTS ? 0 : SHIPPING.STANDARD_CENTS;
             }
 
-            const totalCents = Math.max(0, subtotalCents + shippingCents - rewardDiscountCents - couponDiscountCents);
+            const totalCents = Math.max(0, subtotalCents + shippingCents - couponDiscountCents);
 
             // 7e. Crear la orden con los ítems ya resueltos
             // Limpiar campos internos (_shouldDecrementStock, etc.) antes de insertar
@@ -313,8 +254,6 @@ router.post('/orders', createOrderLimiter, async (req: Request, res: Response) =
                     shippingCents,
                     subtotalCents,
                     totalCents,
-                    rewardDiscountCents,
-                    rewardPointsUsed,
                     couponCode,
                     couponDiscountCents,
                     currency: 'MXN',
@@ -465,6 +404,7 @@ router.get('/orders/:orderNumber', async (req: Request, res: Response) => {
 
 /* ─── GET /orders — Listar órdenes (admin) ─── */
 router.get('/orders', requireAuth, async (req: Request, res: Response) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     const { status, page = '1' } = req.query;
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const pageSize = 20;
@@ -503,6 +443,7 @@ router.get('/orders', requireAuth, async (req: Request, res: Response) => {
 
 /* ─── PUT /orders/:id/status — Cambiar status (admin) ─── */
 router.put('/orders/:id/status', requireAuth, async (req: Request, res: Response) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     const parsed = UpdateOrderStatusSchema.safeParse(req.body);
     if (!parsed.success) {
         return res.status(400).json({
@@ -549,16 +490,6 @@ router.put('/orders/:id/status', requireAuth, async (req: Request, res: Response
                 itemsForRewards,
                 `Orden ${order.orderNumber}`,
             ).catch((err) => console.error('⚠️  earnPoints (admin) fallido:', err));
-
-            // Descontar puntos canjeados (diferido desde creación de orden)
-            if (order.rewardPointsUsed > 0) {
-                applyRedeem(
-                    order.userId,
-                    order.rewardPointsUsed,
-                    order.id,
-                    `Canje en orden ${order.orderNumber}`,
-                ).catch((err) => console.error('⚠️  applyRedeem (admin) fallido:', err));
-            }
         }
 
         res.json(order);

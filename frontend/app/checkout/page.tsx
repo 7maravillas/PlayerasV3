@@ -5,7 +5,7 @@ import { useCartStore } from "@/app/store/cartStore";
 import { api } from "@/lib/api";
 import { getDeliveryDates } from "@/lib/shipping";
 import Navbar from "@/components/Navbar";
-import { ShieldCheck, Truck, CreditCard, ChevronRight, Package, Zap, Loader2, Star, Tag, X } from "lucide-react";
+import { ShieldCheck, Truck, CreditCard, ChevronRight, Package, Zap, Loader2, Tag, X } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -35,11 +35,6 @@ export default function CheckoutPage() {
     const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
     const [shippingLoading, setShippingLoading] = useState(true);
 
-    // Recompensas
-    const [rewardBalance, setRewardBalance] = useState<{ points: number; valueCents: number } | null>(null);
-    const [pointsToRedeem, setPointsToRedeem] = useState(0);
-    const [redeemInput, setRedeemInput] = useState("");
-
     // Cupones
     const [couponInput, setCouponInput] = useState("");
     const [couponData, setCouponData] = useState<{ code: string; discountPercent: number; discountCents: number; description: string } | null>(null);
@@ -48,17 +43,6 @@ export default function CheckoutPage() {
     const [firstPurchaseCoupon, setFirstPurchaseCoupon] = useState<{ code: string; discountPercent: number; description: string } | null>(null);
 
     useEffect(() => { setMounted(true); }, []);
-
-    // Fetch balance de puntos si está logueado
-    useEffect(() => {
-        if (!token) return;
-        fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000"}/api/v1/rewards/balance`, {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then((r) => r.json())
-            .then((data) => { if (data?.points !== undefined) setRewardBalance(data); })
-            .catch(() => {});
-    }, [token]);
 
     // Fetch cupón de primera compra activo (para sugerencia)
     useEffect(() => {
@@ -117,10 +101,8 @@ export default function CheckoutPage() {
     const standardOption = shippingOptions.find(o => o.method === 'STANDARD');
     const expressOption = shippingOptions.find(o => o.method === 'EXPRESS');
     const shippingCost = (selectedOption?.costCents ?? 0) / 100;
-    const maxRedeemable = Math.min(rewardBalance?.points ?? 0, Math.floor(subtotal));
-    const rewardDiscount = Math.min(pointsToRedeem, maxRedeemable);
-    const couponDiscountAmount = couponData ? subtotal * couponData.discountPercent / 100 : 0;
-    const total = Math.max(0, subtotal + shippingCost - rewardDiscount - couponDiscountAmount);
+    const couponDiscountAmount = couponData ? couponData.discountCents / 100 : 0;
+    const total = Math.max(0, subtotal + shippingCost - couponDiscountAmount);
 
     const applyCoupon = async (code: string) => {
         const trimmed = code.trim().toUpperCase();
@@ -201,7 +183,6 @@ export default function CheckoutPage() {
                 reference: formData.reference || null,
                 shippingMethod: finalShippingMethod,
                 items: orderItems,
-                rewardPointsToRedeem: rewardDiscount > 0 ? rewardDiscount : undefined,
                 couponCode: couponData?.code ?? undefined,
             }, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
 
@@ -425,54 +406,6 @@ export default function CheckoutPage() {
                                 </div>
                             )}
 
-                            {/* RECOMPENSAS */}
-                            {user && rewardBalance && rewardBalance.points > 0 && (
-                                <section className="space-y-3">
-                                    <h2 className="text-xl font-heading uppercase tracking-wide flex items-center gap-2">
-                                        <Star className="w-5 h-5 text-[#F8C37C]" />
-                                        Usar mis puntos
-                                    </h2>
-                                    <div className="rounded-xl border border-[#F8C37C]/30 bg-[#F8C37C]/5 p-4">
-                                        <p className="text-sm text-th-secondary mb-3">
-                                            Tienes <span className="font-bold text-[#F8C37C]">{rewardBalance.points} puntos</span> disponibles
-                                            {maxRedeemable < rewardBalance.points && (
-                                                <> (puedes usar hasta <span className="font-bold text-[#F8C37C]">{maxRedeemable}</span> en esta orden)</>
-                                            )}
-                                        </p>
-                                        <div className="flex gap-3">
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                max={maxRedeemable}
-                                                value={redeemInput}
-                                                onChange={(e) => {
-                                                    setRedeemInput(e.target.value);
-                                                    const val = Math.min(parseInt(e.target.value) || 0, maxRedeemable);
-                                                    setPointsToRedeem(val);
-                                                }}
-                                                placeholder={`Máx. ${maxRedeemable}`}
-                                                className="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-black text-sm focus:border-[#F8C37C] outline-none transition-colors"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setPointsToRedeem(maxRedeemable);
-                                                    setRedeemInput(String(maxRedeemable));
-                                                }}
-                                                className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest border border-[#F8C37C]/50 text-[#F8C37C] rounded-lg hover:bg-[#F8C37C]/10 transition-colors whitespace-nowrap"
-                                            >
-                                                Usar todos
-                                            </button>
-                                        </div>
-                                        {pointsToRedeem > 0 && (
-                                            <p className="text-xs text-emerald-500 mt-2 font-semibold">
-                                                ✓ Aplicando {pointsToRedeem} pts → -${pointsToRedeem} MXN de descuento
-                                            </p>
-                                        )}
-                                    </div>
-                                </section>
-                            )}
-
                             {/* ERROR */}
                             {error && (
                                 <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-4">
@@ -551,15 +484,6 @@ export default function CheckoutPage() {
                                         {shippingCost === 0 ? "Gratis" : `$${Number(shippingCost).toFixed(2).replace(/\.00$/, '')}`}
                                     </span>
                                 </div>
-                                {rewardDiscount > 0 && (
-                                    <div className="flex justify-between items-center text-[#F8C37C]">
-                                        <span className="flex items-center gap-1">
-                                            <Star className="w-4 h-4" />
-                                            Puntos canjeados ({rewardDiscount} pts)
-                                        </span>
-                                        <span className="font-bold">-${rewardDiscount}</span>
-                                    </div>
-                                )}
                                 {couponData && (
                                     <div className="flex justify-between items-center text-emerald-500">
                                         <span className="flex items-center gap-1">
@@ -604,7 +528,7 @@ export default function CheckoutPage() {
                                     </div>
                                 ) : (
                                     <p className="text-xs text-emerald-500 font-semibold flex items-center gap-1">
-                                        ✓ Descuento aplicado: {couponData.discountPercent}% — {couponData.description}
+                                        ✓ Descuento aplicado: {couponData.description}
                                     </p>
                                 )}
                             </div>

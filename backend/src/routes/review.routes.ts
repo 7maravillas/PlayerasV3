@@ -165,6 +165,7 @@ router.get('/products/:productId/reviews', async (req, res, next) => {
    Crear reseña manualmente desde el panel de administración
    ───────────────────────────────────────────────────────── */
 router.post('/products/:productId/reviews', requireAuth, async (req, res, next) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     try {
         const { productId } = req.params;
         const { name, image, rating, comment, createdAt } = req.body;
@@ -212,6 +213,7 @@ router.post('/products/:productId/reviews', requireAuth, async (req, res, next) 
    DELETE /reviews/:id — ADMIN ONLY
    ───────────────────────────────────────────────────────── */
 router.delete('/reviews/:id', requireAuth, async (req, res, next) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     try {
         await prisma.review.delete({ where: { id: req.params.id } });
         res.json({ success: true });
@@ -225,6 +227,7 @@ router.delete('/reviews/:id', requireAuth, async (req, res, next) => {
    Listar todas las reseñas con info de producto
    ───────────────────────────────────────────────────────── */
 router.get('/admin/reviews', requireAuth, async (_req, res, next) => {
+    if (_req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     try {
         const reviews = await prisma.review.findMany({
             orderBy: { createdAt: 'desc' },
@@ -244,6 +247,7 @@ router.get('/admin/reviews', requireAuth, async (_req, res, next) => {
    Aprueba una reseña (verified: true)
    ───────────────────────────────────────────────────────── */
 router.patch('/admin/reviews/:id/approve', requireAuth, async (req, res, next) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     try {
         const review = await prisma.review.update({
             where: { id: req.params.id },
@@ -260,6 +264,7 @@ router.patch('/admin/reviews/:id/approve', requireAuth, async (req, res, next) =
    Rechaza una reseña (verified: false)
    ───────────────────────────────────────────────────────── */
 router.patch('/admin/reviews/:id/reject', requireAuth, async (req, res, next) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     try {
         const review = await prisma.review.update({
             where: { id: req.params.id },

@@ -50,7 +50,19 @@ app.use(helmet({
   hsts: process.env.NODE_ENV === 'production'
     ? { maxAge: 31536000, includeSubDomains: true, preload: true }
     : false,
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:  ["'self'"],
+      scriptSrc:   ["'self'", 'https://js.stripe.com'],
+      frameSrc:    ["'self'", 'https://js.stripe.com'],
+      connectSrc:  ["'self'", 'https://api.stripe.com', 'https://res.cloudinary.com'],
+      imgSrc:      ["'self'", 'data:', 'https://res.cloudinary.com'],
+      styleSrc:    ["'self'", "'unsafe-inline'"],
+      fontSrc:     ["'self'", 'data:'],
+      objectSrc:   ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
 }));
 
 app.use(express.json({ limit: '10mb' }));

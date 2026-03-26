@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(xargs wc:*)",
-      "Bash(find C:UsersjuancPLayerav2-mainPLayerav2-mainbackend -name *.env* -type f)"
+      "Bash(find C:UsersjuancPLayerav2-mainPLayerav2-mainbackend -name *.env* -type f)",
+      "Bash(rtk npx:*)",
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :4000)",
+      "Bash(tasklist)",
+      "Bash(findstr node:*)",
+      "Bash(wmic process:*)",
+      "Bash(tasklist:*)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_0DWdmyR7zeiF@ep-sweet-band-admiw0jk.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require\" npx prisma migrate dev --name reward_redemption_discount_cents)"
     ]
   }
 }
