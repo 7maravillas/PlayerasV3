@@ -29,6 +29,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [clubs, setClubs] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -41,6 +42,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     brand: "",
     gender: "HOMBRE",
     categoryId: "",
+    clubId: "",
     globalAllowsNameNumber: true,
     earnPoints: true,
     redeemMaxQty: "" as string,
@@ -50,6 +52,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
   // 1. CARGAR DATOS
   useEffect(() => {
+    api.get(`/api/v1/clubs?limit=200`).then((data) => setClubs(data.items || data || [])).catch(() => {});
+
     api.get(`/api/v1/products/${params.id}`)
       .then((data) => {
         setFormData({
@@ -65,6 +69,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           brand: data.brand || "",
           gender: data.gender || "HOMBRE",
           categoryId: data.categoryId || "",
+          clubId: data.clubId || "",
           globalAllowsNameNumber: data.variants?.length > 0
             ? data.variants.every((v: any) => v.allowsNameNumber)
             : true,
@@ -137,6 +142,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         price: parseFloat(formData.price),
         compareAtPrice: formData.compareAtPrice ? parseFloat(formData.compareAtPrice) : null,
         images: formData.images,
+        clubId: formData.clubId || null,
         earnPoints: formData.earnPoints,
         redeemMaxQty: formData.redeemMaxQty === "" ? null : parseInt(formData.redeemMaxQty as string),
       };
@@ -246,6 +252,15 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                 <option value="MUJER">Mujer</option>
                 <option value="NINO">Niño</option>
                 <option value="UNISEX">Unisex</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Club / Equipo</label>
+              <select value={formData.clubId} onChange={e => setFormData({ ...formData, clubId: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:border-indigo-400 outline-none appearance-none transition-all">
+                <option value="">— Sin club —</option>
+                {clubs.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
               </select>
             </div>
             <div className="md:col-span-3">
