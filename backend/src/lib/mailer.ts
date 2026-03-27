@@ -1,27 +1,36 @@
-// backend/src/lib/mailer.ts
-import * as nodemailer from 'nodemailer';
+// backend/src/lib/mailer.ts — Brevo API (HTTP, no SMTP)
 
-const {
-  SMTP_HOST,
-  SMTP_PORT,
-  SMTP_USER,
-  SMTP_PASS,
-  SMTP_FROM,
-  NODE_ENV,
-} = process.env;
+const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
+const SENDER_EMAIL  = process.env.SMTP_FROM ?? 'ayuda@jerseysraw.com';
+const SENDER_NAME   = 'Jerseys Raw';
 
-// Si faltan credenciales, usamos transporte que imprime el correo en consola
-const useConsole =
-  !SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM;
+// ─── Helper base ───────────────────────────────────────────────────────────
+async function sendBrevoEmail(to: string, subject: string, html: string) {
+  if (!BREVO_API_KEY) {
+    console.log(`[MAIL-DEV] Para: ${to} | Asunto: ${subject}`);
+    return;
+  }
 
-export const mailer = useConsole
-  ? nodemailer.createTransport({ jsonTransport: true }) // imprime el “email” en consola (no envía)
-  : nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: Number(SMTP_PORT || 587),
-      secure: false,
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-    });
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': BREVO_API_KEY,
+      'content-type': 'application/json',
+      'accept': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: SENDER_NAME, email: SENDER_EMAIL },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Brevo API error ${res.status}: ${JSON.stringify(err)}`);
+  }
+}
 
 // ─── Tipos para el email de confirmación ───────────────────────────────────
 interface OrderEmailItem {
@@ -93,13 +102,9 @@ export async function sendOrderConfirmationEmail(order: OrderEmailData) {
 <title>Confirmación de orden ${order.orderNumber}</title>
 </head>
 <body style="margin:0;padding:0;background:#0a0a0a;font-family:Arial,Helvetica,sans-serif;">
-
-  <!-- Wrapper -->
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:32px 16px;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
-
-        <!-- Header -->
         <tr>
           <td style="background:#111111;border:1px solid #1e1e1e;border-radius:12px 12px 0 0;padding:32px 32px 24px;text-align:center;">
             <p style="margin:0 0 4px;font-size:28px;font-weight:900;letter-spacing:6px;color:#ffffff;">JERSEYS</p>
@@ -107,31 +112,21 @@ export async function sendOrderConfirmationEmail(order: OrderEmailData) {
             <div style="margin:20px auto 0;width:40px;height:2px;background:linear-gradient(90deg,transparent,#F8C37C,transparent);"></div>
           </td>
         </tr>
-
-        <!-- Hero message -->
         <tr>
           <td style="background:#161616;border-left:1px solid #1e1e1e;border-right:1px solid #1e1e1e;padding:28px 32px 24px;text-align:center;">
             <p style="margin:0 0 8px;font-size:11px;letter-spacing:4px;color:#F8C37C;text-transform:uppercase;">Pago confirmado</p>
-            <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">
-              ¡Gracias, ${order.firstName}!
-            </h1>
+            <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">¡Gracias, ${order.firstName}!</h1>
             <p style="margin:0;font-size:14px;color:#888888;line-height:1.6;">
               Tu orden <strong style="color:#F8C37C;">${order.orderNumber}</strong> ha sido confirmada y está siendo preparada.
             </p>
           </td>
         </tr>
-
-        <!-- Order items -->
         <tr>
           <td style="background:#111111;border-left:1px solid #1e1e1e;border-right:1px solid #1e1e1e;padding:24px 32px;">
             <p style="margin:0 0 16px;font-size:11px;letter-spacing:3px;color:#666;text-transform:uppercase;">Productos</p>
-            <table width="100%" cellpadding="0" cellspacing="0">
-              ${itemsHtml}
-            </table>
+            <table width="100%" cellpadding="0" cellspacing="0">${itemsHtml}</table>
           </td>
         </tr>
-
-        <!-- Totals -->
         <tr>
           <td style="background:#111111;border-left:1px solid #1e1e1e;border-right:1px solid #1e1e1e;padding:0 32px 24px;">
             <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1e1e1e;padding-top:16px;">
@@ -152,8 +147,6 @@ export async function sendOrderConfirmationEmail(order: OrderEmailData) {
             </table>
           </td>
         </tr>
-
-        <!-- Shipping address -->
         <tr>
           <td style="background:#161616;border-left:1px solid #1e1e1e;border-right:1px solid #1e1e1e;padding:24px 32px;">
             <p style="margin:0 0 12px;font-size:11px;letter-spacing:3px;color:#666;text-transform:uppercase;">Dirección de entrega</p>
@@ -165,8 +158,6 @@ export async function sendOrderConfirmationEmail(order: OrderEmailData) {
             </p>
           </td>
         </tr>
-
-        <!-- CTA tracking -->
         <tr>
           <td style="background:#111111;border-left:1px solid #1e1e1e;border-right:1px solid #1e1e1e;padding:28px 32px;text-align:center;">
             <p style="margin:0 0 16px;color:#888;font-size:13px;">¿Quieres saber dónde está tu paquete?</p>
@@ -178,42 +169,28 @@ export async function sendOrderConfirmationEmail(order: OrderEmailData) {
             </a>
           </td>
         </tr>
-
-        <!-- Footer -->
         <tr>
           <td style="background:#0d0d0d;border:1px solid #1e1e1e;border-radius:0 0 12px 12px;padding:24px 32px;text-align:center;">
             <p style="margin:0 0 8px;color:#444;font-size:12px;">
               ¿Tienes dudas? Escríbenos a
               <a href="mailto:hola@jerseysraw.com" style="color:#F8C37C;text-decoration:none;">hola@jerseysraw.com</a>
             </p>
-            <p style="margin:0;color:#333;font-size:11px;">
-              © ${new Date().getFullYear()} Jerseys Raw · Todos los derechos reservados
-            </p>
+            <p style="margin:0;color:#333;font-size:11px;">© ${new Date().getFullYear()} Jerseys Raw · Todos los derechos reservados</p>
           </td>
         </tr>
-
       </table>
     </td></tr>
   </table>
 </body>
 </html>`;
 
-  const info = await mailer.sendMail({
-    from: `"Jerseys Raw" <${SMTP_FROM ?? 'no-reply@jerseysraw.com'}>`,
-    to: order.email,
-    subject: `✅ Orden confirmada ${order.orderNumber} — Jerseys Raw`,
-    html,
-  });
-
-  if (useConsole || NODE_ENV === 'development') {
-    console.log(`[MAIL] Confirmación enviada a ${order.email} — orden ${order.orderNumber}`);
-  }
+  await sendBrevoEmail(order.email, `✅ Orden confirmada ${order.orderNumber} — Jerseys Raw`, html);
 }
 
-// ─── Email de notificación al admin — nueva orden pagada ───────────────────
+// ─── Email de notificación al admin ────────────────────────────────────────
 export async function sendAdminOrderNotification(order: OrderEmailData) {
   const adminEmail = process.env.ADMIN_EMAIL;
-  if (!adminEmail) return; // No configurado — silenciosamente ignorar
+  if (!adminEmail) return;
 
   const itemsList = order.items
     .map(i => `• ${i.productName} × ${i.quantity} — ${formatMXN(i.unitPriceCents * i.quantity)}`)
@@ -234,56 +211,36 @@ export async function sendAdminOrderNotification(order: OrderEmailData) {
     </div>
   `;
 
-  await mailer.sendMail({
-    from: SMTP_FROM || 'no-reply@jerseysraw.com',
-    to: adminEmail,
-    subject: `🛒 Nueva orden ${order.orderNumber} — ${formatMXN(order.totalCents)}`,
-    html,
-  });
+  await sendBrevoEmail(adminEmail, `🛒 Nueva orden ${order.orderNumber} — ${formatMXN(order.totalCents)}`, html);
 }
 
+// ─── Email de reset de contraseña ──────────────────────────────────────────
 export async function sendPasswordResetEmail(to: string, code: string) {
   const html = `
-    <div style="font-family:system-ui,Segoe UI,Roboto,Arial">
-      <h2>Restablecer contraseña</h2>
+    <div style="font-family:system-ui,Segoe UI,Roboto,Arial;max-width:480px;margin:0 auto;padding:32px;">
+      <h2 style="color:#F8C37C;">Restablecer contraseña</h2>
       <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta.</p>
       <p>Tu código de verificación es:</p>
-      <p style="font-size:24px;font-weight:700;letter-spacing:4px">${code}</p>
+      <p style="font-size:32px;font-weight:700;letter-spacing:8px;color:#111;">${code}</p>
       <p>Este código expira en 10 minutos.</p>
-      <p>Si no solicitaste esto, puedes ignorar este correo.</p>
+      <p style="color:#888;font-size:12px;">Si no solicitaste esto, puedes ignorar este correo.</p>
     </div>
   `;
 
-  await mailer.sendMail({
-    from: SMTP_FROM || 'no-reply@jerseysraw.com',
-    to,
-    subject: 'Restablece tu contraseña — Jerseys Raw',
-    html,
-  });
-
-  if (useConsole || NODE_ENV === 'development') {
-    console.log(`[MAIL] Reset de contraseña enviado a ${to} — código: ${code}`);
-  }
+  await sendBrevoEmail(to, 'Restablece tu contraseña — Jerseys Raw', html);
 }
 
+// ─── Email de verificación de cuenta ───────────────────────────────────────
 export async function sendVerificationEmail(to: string, code: string) {
   const html = `
-    <div style="font-family:system-ui,Segoe UI,Roboto,Arial">
-      <h2>Verifica tu correo</h2>
+    <div style="font-family:system-ui,Segoe UI,Roboto,Arial;max-width:480px;margin:0 auto;padding:32px;">
+      <h2 style="color:#F8C37C;">Verifica tu correo</h2>
+      <p>Gracias por registrarte en <strong>Jerseys Raw</strong>.</p>
       <p>Tu código de verificación es:</p>
-      <p style="font-size:24px;font-weight:700;letter-spacing:4px">${code}</p>
+      <p style="font-size:32px;font-weight:700;letter-spacing:8px;color:#111;">${code}</p>
       <p>Este código expira en 10 minutos.</p>
     </div>
   `;
 
-  const info = await mailer.sendMail({
-    from: SMTP_FROM || 'no-reply@example.com',
-    to,
-    subject: 'Verifica tu correo',
-    html,
-  });
-
-  if (useConsole || NODE_ENV === 'development') {
-    console.log(`[MAIL] Verificación enviada a ${to} — código: ${code}`);
-  }
+  await sendBrevoEmail(to, 'Verifica tu correo — Jerseys Raw', html);
 }
