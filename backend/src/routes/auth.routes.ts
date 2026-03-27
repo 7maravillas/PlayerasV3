@@ -59,7 +59,18 @@ router.post('/register', async (req, res, next) => {
     const { email, password, name } = parsed.data;
 
     const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) return res.status(409).json({ error: 'El correo ya está registrado' });
+    if (exists) {
+      // Si ya está verificado, rechazar
+      if (exists.emailVerifiedAt) return res.status(409).json({ error: 'El correo ya está registrado' });
+      // Si no está verificado, reenviar código
+      const code = genCode();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      await prisma.verificationToken.create({
+        data: { userId: exists.id, type: 'EMAIL_VERIFY', code, expiresAt },
+      });
+      await sendVerificationEmail(email, code);
+      return res.status(200).json({ message: 'Te reenviamos el código de verificación. Revisa tu correo.' });
+    }
 
     const passwordHash = await hashPassword(password);
     const user = await prisma.user.create({
