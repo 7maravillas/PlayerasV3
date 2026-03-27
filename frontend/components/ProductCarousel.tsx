@@ -14,7 +14,7 @@ const PRODUCTS = [
   {
     id: 2,
     name: "Barcelona",
-    slug: "fc-barcelona",
+    slug: "barcelona",
     img: "https://res.cloudinary.com/dcwyl56kj/image/upload/v1772775430/retro5_k5nzhi.png",
     imgHover: "https://res.cloudinary.com/dcwyl56kj/image/upload/v1772952544/bcn_gbhic4.svg",
   },
@@ -35,14 +35,14 @@ const PRODUCTS = [
   {
     id: 5,
     name: "América",
-    slug: "club-america",
+    slug: "america",
     img: "https://res.cloudinary.com/dcwyl56kj/image/upload/v1772778752/m%C3%A9xico_1_kppyb8.png",
     imgHover: "https://res.cloudinary.com/dcwyl56kj/image/upload/v1772952759/bcn_1_u10ny8.svg",
   },
   {
     id: 6,
     name: "México",
-    slug: "mxico",
+    slug: "mexico",
     img: "https://res.cloudinary.com/dcwyl56kj/image/upload/v1772777957/m%C3%A9xico_bub2fh.png",
     imgHover: "https://res.cloudinary.com/dcwyl56kj/image/upload/v1772953175/mex_qonlyg.svg",
   },
@@ -141,7 +141,7 @@ const ProductCarousel = () => {
                 </div>
 
                 {/* IMAGEN — ocupa el espacio disponible */}
-                <Link href={`/catalog?clubs=${product.slug}`} className="block relative flex-1 min-h-0 overflow-hidden cursor-pointer rounded-lg">
+                <Link href={`/teams/${product.slug}`} className="block relative flex-1 min-h-0 overflow-hidden cursor-pointer rounded-lg">
                   <img
                     src={product.img}
                     alt={product.name}
@@ -159,7 +159,7 @@ const ProductCarousel = () => {
                 {/* BOTÓN al fondo con pequeño espacio */}
                 <div className="pt-2 pb-3 text-center">
                   <Link
-                    href={`/catalog?clubs=${product.slug}`}
+                    href={`/teams/${product.slug}`}
                     className="inline-flex items-center justify-center px-14 py-2.5 bg-gradient-to-b from-[#f8c889] via-[#fbc57d] to-[#fec375] text-black rounded-full font-semibold text-sm hover:opacity-90 transition-opacity"
                   >
                     Comprar
