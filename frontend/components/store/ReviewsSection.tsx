@@ -335,10 +335,10 @@ export default function ReviewsSection({
         <div className="flex items-center gap-2">
           <button
             onClick={handleOpenForm}
-            className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-neutral-700 hover:text-neutral-900 border border-neutral-300 hover:border-neutral-500 rounded-full px-4 py-2 transition-colors"
+            className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 hover:text-neutral-900 border border-neutral-300 hover:border-neutral-500 rounded-full px-3 py-2 sm:px-4 transition-colors"
           >
             <PenLine size={14} />
-            Escribe una reseña
+            <span className="hidden sm:inline">Escribe una reseña</span>
           </button>
 
           <div className="relative">
