@@ -2,11 +2,11 @@ import Link from 'next/link';
 
 const Newsletter = () => (
   <section className="bg-zinc-800 py-16 px-6 overflow-hidden">
-    <div className="container mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+    <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
       {/* Lado izquierdo — hashtag */}
       <div>
-        <h2 className="text-3xl sm:text-5xl md:text-7xl font-sans font-extrabold uppercase text-[#F8C37C] leading-none tracking-tight">
+        <h2 className="text-3xl sm:text-5xl lg:text-5xl xl:text-7xl font-sans font-extrabold uppercase text-[#F8C37C] leading-none tracking-tight">
           #ÚNETEALCLUB
         </h2>
       </div>
