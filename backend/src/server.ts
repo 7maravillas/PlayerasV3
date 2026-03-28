@@ -31,6 +31,7 @@ import rewardsRoutes from './routes/rewards.routes.js';
 import couponRoutes from './routes/coupon.routes.js';
 import stockRoutes from './routes/stock.routes.js';
 import crmRoutes from './routes/crm.routes.js';
+import newsletterRoutes from './routes/newsletter.routes.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -109,6 +110,7 @@ app.use('/api/v1', shippingRoutes);
 app.use('/api/v1', trackingRoutes);
 app.use('/api/v1', rewardsRoutes);
 app.use('/api/v1', stockRoutes);
+app.use('/api/v1', newsletterRoutes);
 
 /* ─── Error handling ─── */
 app.use(errorHandler);

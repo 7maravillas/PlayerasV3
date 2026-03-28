@@ -258,7 +258,8 @@ export default function CheckoutPage() {
                             <section className="space-y-4">
                                 <h2 className="text-xl font-heading uppercase tracking-wide">Información de Contacto</h2>
                                 <div>
-                                    <input type="email" name="email" required placeholder="Correo Electrónico" value={formData.email} onChange={handleInputChange} autoComplete="email" className={inputClass} />
+                                    <label htmlFor="email" className="block text-xs font-medium text-th-secondary mb-1">Correo Electrónico *</label>
+                                    <input id="email" type="email" name="email" required placeholder="tu@correo.com" value={formData.email} onChange={handleInputChange} autoComplete="email" className={inputClass} />
                                     <p className="text-xs text-th-secondary mt-2 flex items-center gap-1">
                                         <ShieldCheck className="w-3.5 h-3.5" /> Te enviaremos el recibo y actualizaciones de envío aquí.
                                     </p>
@@ -269,34 +270,61 @@ export default function CheckoutPage() {
                             <section className="space-y-4">
                                 <h2 className="text-xl font-heading uppercase tracking-wide">Dirección de Envío</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <input type="text" name="firstName" required placeholder="Nombre" value={formData.firstName} onChange={handleInputChange} autoComplete="given-name" className={inputClass} />
-                                    <input type="text" name="lastName" required placeholder="Apellido(s)" value={formData.lastName} onChange={handleInputChange} autoComplete="family-name" className={inputClass} />
-                                    <input type="text" name="address" required placeholder="Dirección (Calle, Número, Colonia)" value={formData.address} onChange={handleInputChange} autoComplete="street-address" className={`${inputClass} md:col-span-2`} />
-                                    <input type="text" name="city" required placeholder="Ciudad" value={formData.city} onChange={handleInputChange} autoComplete="address-level2" className={inputClass} />
-                                    <input type="text" name="state" required placeholder="Estado" value={formData.state} onChange={handleInputChange} autoComplete="address-level1" className={inputClass} />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <input
-                                            type="text" name="zipCode" required placeholder="C.P."
-                                            value={formData.zipCode} onChange={handleInputChange}
-                                            pattern="\d{5}" maxLength={5} title="5 dígitos"
-                                            autoComplete="postal-code" className={inputClass}
-                                        />
-                                        <select name="country" value={formData.country} onChange={handleInputChange} autoComplete="country-name" className={inputClass}>
-                                            <option value="México">México</option>
-                                        </select>
+                                    <div className="flex flex-col gap-1">
+                                        <label htmlFor="firstName" className="text-xs font-medium text-th-secondary">Nombre *</label>
+                                        <input id="firstName" type="text" name="firstName" required placeholder="Juan" value={formData.firstName} onChange={handleInputChange} autoComplete="given-name" className={inputClass} />
                                     </div>
-                                    <input
-                                        type="tel" name="phone" required placeholder="Teléfono (10 dígitos)"
-                                        value={formData.phone} onChange={handleInputChange}
-                                        pattern="\d{10}" maxLength={10} title="10 dígitos"
-                                        autoComplete="tel" className={`${inputClass} md:col-span-2`}
-                                    />
-                                    <input
-                                        type="text" name="reference" placeholder="Referencia (entre calles, fachada, etc.)"
-                                        value={formData.reference} onChange={handleInputChange}
-                                        maxLength={120}
-                                        className={`${inputClass} md:col-span-2`}
-                                    />
+                                    <div className="flex flex-col gap-1">
+                                        <label htmlFor="lastName" className="text-xs font-medium text-th-secondary">Apellido(s) *</label>
+                                        <input id="lastName" type="text" name="lastName" required placeholder="García López" value={formData.lastName} onChange={handleInputChange} autoComplete="family-name" className={inputClass} />
+                                    </div>
+                                    <div className="flex flex-col gap-1 md:col-span-2">
+                                        <label htmlFor="address" className="text-xs font-medium text-th-secondary">Dirección *</label>
+                                        <input id="address" type="text" name="address" required placeholder="Calle, Número, Colonia" value={formData.address} onChange={handleInputChange} autoComplete="street-address" className={inputClass} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label htmlFor="city" className="text-xs font-medium text-th-secondary">Ciudad *</label>
+                                        <input id="city" type="text" name="city" required placeholder="Ciudad de México" value={formData.city} onChange={handleInputChange} autoComplete="address-level2" className={inputClass} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label htmlFor="state" className="text-xs font-medium text-th-secondary">Estado *</label>
+                                        <input id="state" type="text" name="state" required placeholder="CDMX" value={formData.state} onChange={handleInputChange} autoComplete="address-level1" className={inputClass} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-1">
+                                            <label htmlFor="zipCode" className="text-xs font-medium text-th-secondary">C.P. *</label>
+                                            <input
+                                                id="zipCode" type="text" name="zipCode" required placeholder="06600"
+                                                value={formData.zipCode} onChange={handleInputChange}
+                                                pattern="\d{5}" maxLength={5} title="5 dígitos"
+                                                autoComplete="postal-code" className={inputClass}
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label htmlFor="country" className="text-xs font-medium text-th-secondary">País</label>
+                                            <select id="country" name="country" value={formData.country} onChange={handleInputChange} autoComplete="country-name" className={inputClass}>
+                                                <option value="México">México</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-1 md:col-span-2">
+                                        <label htmlFor="phone" className="text-xs font-medium text-th-secondary">Teléfono *</label>
+                                        <input
+                                            id="phone" type="tel" name="phone" required placeholder="5512345678"
+                                            value={formData.phone} onChange={handleInputChange}
+                                            pattern="\d{10}" maxLength={10} title="10 dígitos"
+                                            autoComplete="tel" className={inputClass}
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1 md:col-span-2">
+                                        <label htmlFor="reference" className="text-xs font-medium text-th-secondary">Referencia <span className="font-normal">(opcional)</span></label>
+                                        <input
+                                            id="reference" type="text" name="reference" placeholder="Entre calles, color de fachada, etc."
+                                            value={formData.reference} onChange={handleInputChange}
+                                            maxLength={120}
+                                            className={inputClass}
+                                        />
+                                    </div>
                                 </div>
                             </section>
 
