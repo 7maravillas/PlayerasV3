@@ -73,7 +73,7 @@ export default function TerminosCondicionesPage() {
               <li>Realizamos envíos a toda la <strong>República Mexicana</strong> a través de <strong>Correos de México</strong> y servicios de paquetería.</li>
               <li>Los tiempos de entrega estimados van de <strong>3 a 10 días hábiles</strong> dependiendo de tu ubicación y la disponibilidad del producto.</li>
               <li>Pedidos con productos en stock local se procesan en 1–2 días hábiles. Pedidos con productos dropshipping pueden tomar entre 7–15 días hábiles.</li>
-              <li>Recibirás un número de rastreo por correo una vez que tu pedido sea enviado. Puedes rastrear tu paquete en la sección <strong>"Rastrear pedido"</strong> de nuestro sitio.</li>
+              <li>Recibirás un número de rastreo por correo una vez que tu pedido sea enviado. Puedes rastrear tu paquete en la sección <strong>&ldquo;Rastrear pedido&rdquo;</strong> de nuestro sitio.</li>
               <li>Jerseys Raw no se hace responsable por retrasos causados por la paquetería, desastres naturales, huelgas o situaciones fuera de nuestro control.</li>
             </ul>
           </section>
