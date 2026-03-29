@@ -115,6 +115,24 @@ function InteractiveStars({
   );
 }
 
+/**
+ * Devuelve un aspect-ratio Tailwind determinista basado en el ID de la reseña.
+ * Distribución: ~50% square, ~33% landscape 4:3, ~17% portrait 3:4.
+ */
+function imgAspect(id: string): string {
+  const hex = id.replace(/-/g, "");
+  const val = parseInt(hex.slice(0, 6), 16);
+  const options = [
+    "aspect-square",  // 1:1
+    "aspect-[4/3]",   // landscape
+    "aspect-square",  // 1:1
+    "aspect-[3/4]",   // portrait suave
+    "aspect-[4/3]",   // landscape
+    "aspect-square",  // 1:1
+  ] as const;
+  return options[val % options.length];
+}
+
 /** Resuelve imagen: publicId de Cloudinary o URL completa */
 function resolveImg(raw: string | undefined | null, w = 300): string {
   if (!raw) return "";
@@ -405,7 +423,7 @@ export default function ReviewsSection({
                   <img
                     src={resolveImg(review.image, 600)}
                     alt={`Foto de ${review.name}`}
-                    className="w-full h-auto object-cover group-hover/photo:brightness-95 transition-all duration-300"
+                    className={`w-full object-cover group-hover/photo:brightness-95 transition-all duration-300 ${imgAspect(review.id)}`}
                   />
                 </button>
               )}
