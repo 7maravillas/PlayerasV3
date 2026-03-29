@@ -118,6 +118,12 @@ function InteractiveStars({
 /** Resuelve imagen: publicId de Cloudinary o URL completa */
 function resolveImg(raw: string | undefined | null, w = 300): string {
   if (!raw) return "";
+  if (raw.startsWith("https://res.cloudinary.com")) {
+    // Extrae el publicId de una URL completa (reviews guardadas antes del fix)
+    const match = raw.match(/\/upload\/(?:v\d+\/)?(.+)$/);
+    const publicId = match ? match[1] : null;
+    if (publicId) return cldUrl(publicId, { w, q: "auto" });
+  }
   if (raw.startsWith("http")) return raw;
   return cldUrl(raw, { w, q: "auto" });
 }
@@ -639,7 +645,7 @@ export default function ReviewsSection({
                       <div className="relative w-full rounded-xl overflow-hidden border border-neutral-200">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={formImage}
+                          src={resolveImg(formImage, 600)}
                           alt="Tu foto"
                           className="w-full h-auto object-cover"
                         />
@@ -672,8 +678,8 @@ export default function ReviewsSection({
                           maxFileSize: 5000000,
                         }}
                         onSuccess={(result: any) => {
-                          const url = result?.info?.secure_url;
-                          if (url) setFormImage(url);
+                          const publicId = result?.info?.public_id;
+                          if (publicId) setFormImage(publicId);
                         }}
                       >
                         {({ open }: { open: () => void }) => (
