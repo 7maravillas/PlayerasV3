@@ -35,10 +35,6 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  icons: {
-    icon: "/favicon.png",
-    apple: "/apple-touch-icon.png",
-  },
 };
 
 // 2. ESTRUCTURA BÁSICA (HTML y BODY)
