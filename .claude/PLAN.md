@@ -671,8 +671,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ✅ 6C-7 [HIGH] Wishlist page sin metadata
 **Fix aplicado:** `app/wishlist/layout.tsx` ya existe con metadata y canonical. Verificado 2026-03-28.
 
-#### ✅ 6C-8 [MEDIUM] Product OG type "website" → "product"
-**Fix aplicado:** `product/[id]/page.tsx` usa `type: "product" as any` (Next.js no tipifica "product" en su unión, pero el meta tag OG es válido). 2026-03-30.
+#### ❌ 6C-8 [MEDIUM] Product OG type "website" → "product"
+**Revertido:** Next.js valida los tipos OG internamente y lanza error en Server Components con `"product"`. Quedó como `"website"`. El JSON-LD de Product ya cubre el schema de producto para Google.
 
 #### 6C-9 [MEDIUM] Reviews page client-rendered (invisible a crawlers)
 **Fix:** Fetch inicial server-side en un Server Component wrapper.
