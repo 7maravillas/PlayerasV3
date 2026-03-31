@@ -567,17 +567,15 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ✅ 6A-5 [MEDIUM] Math.random() en número de orden
 **Fix aplicado:** `order.routes.ts` usa `crypto.randomBytes(3).toString('hex')` — 6 chars hex, ~16.7M combinaciones/día, criptográficamente seguro. 2026-03-28.
 
-#### 6A-6 [MEDIUM] CORS permite requests sin Origin en producción
-**Archivo:** `corsConfig.ts:23-26`
-**Fix:** Rechazar requests sin Origin cuando `NODE_ENV === 'production'`.
+#### ✅ 6A-6 [MEDIUM] CORS permite requests sin Origin en producción
+**Fix aplicado:** `corsConfig.ts` rechaza requests sin `Origin` cuando `NODE_ENV === 'production'`; en dev sigue permitiendo curl/postman. 2026-03-31.
 
 #### ✅ 6A-7 [MEDIUM] express.json limit 10mb excesivo
 **Archivo:** `server.ts:70`
 **Fix aplicado:** Reducido a `100kb`. 2026-03-29.
 
-#### 6A-8 [MEDIUM] DATE_TRUNC con param de usuario en raw SQL
-**Archivo:** `analytics.routes.ts:458-467`
-**Fix:** Usar `Prisma.sql` literal map en lugar de interpolación directa.
+#### ✅ 6A-8 [MEDIUM] DATE_TRUNC con param de usuario en raw SQL
+**Fix aplicado:** `analytics.routes.ts` ya tiene whitelist `['day', 'week', 'month']` antes de usar el parámetro en SQL. Verificado 2026-03-31.
 
 ---
 
@@ -620,9 +618,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ✅ 6B-11 [HIGH] stock.routes.ts sin admin check
 **Fix aplicado:** `stock.routes.ts` ya tiene `requireAuth` + `role !== 'admin'` → 403 en todos los handlers. Verificado 2026-03-28.
 
-#### 6B-12 [MEDIUM] Webhook idempotency — duplicate reward points
-**Archivos:** `webhook.routes.ts:100-113`, `rewards.service.ts`
-**Fix:** Verificar si ya existe `RewardTransaction` con mismo `orderId` antes de acreditar.
+#### ✅ 6B-12 [MEDIUM] Webhook idempotency — duplicate reward points
+**Fix aplicado:** `rewards.service.ts` — `earnPoints` verifica `rewardTransaction.findFirst({ where: { orderId, type: 'EARN' } })` antes de acreditar. Si existe, retorna 0 sin crear duplicado. 2026-03-31.
 
 #### 6B-13 [MEDIUM] GET /orders/:orderNumber sin auth (enumerable)
 **Archivo:** `order.routes.ts:337-401`
@@ -681,8 +678,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 **Archivos:** Hero, ProductCarousel, FootballSlider, Footer, CartSidebar, checkout
 **Fix:** Reemplazar con `next/image` o `CldImage` para optimización automática.
 
-#### 6C-11 [MEDIUM] No generateStaticParams en rutas dinámicas
-**Fix:** Agregar `generateStaticParams` en product, teams, leagues, collections para pre-build.
+#### ✅ 6C-11 [MEDIUM] No generateStaticParams en rutas dinámicas
+**Fix aplicado:** `generateStaticParams` + `dynamicParams = true` en `teams/[slug]`, `leagues/[slug]`, `collections/[slug]`. Con try/catch: si la API falla en build, retorna `[]` y todo se renderiza on-demand. Omitido en `product/[id]` (demasiados productos). 2026-03-31.
 
 #### ✅ 6C-12 [MEDIUM] Sitemap incompleto
 **Archivo:** `frontend/app/sitemap.ts`
@@ -729,8 +726,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ✅ 6D-9 [HIGH] Cart delete button invisible en mobile
 **Fix aplicado:** `CartSidebar.tsx` usa `opacity-100 sm:opacity-0 sm:group-hover:opacity-100`. 2026-03-28.
 
-#### 6D-10 [HIGH] No loading.tsx en ninguna ruta
-**Fix:** Crear `loading.tsx` con skeletons para: `/catalog`, `/checkout`, `/product/[id]`, `/account`.
+#### ✅ 6D-10 [HIGH] No loading.tsx en ninguna ruta
+**Fix aplicado:** Creados `loading.tsx` con skeletons en: `catalog/`, `checkout/`, `product/[id]/`, `account/`. 2026-03-31.
 
 #### 6D-11 [HIGH] Hero/ProductCarousel usan raw `<img>`
 **Fix:** Usar `next/image` con `priority` en primer slide del Hero, `loading="lazy"` en el resto.
@@ -761,9 +758,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ✅ 6D-19 [MEDIUM] Cart quantity buttons touch targets pequeños
 **Fix aplicado:** `CartSidebar.tsx` botones `-`/`+` cambiados de `p-1 px-2` a `p-3` (~44×44px). 2026-03-30.
 
-#### 6D-20 [MEDIUM] Search escondido en mobile
-**Archivo:** `Navbar.tsx:414`
-**Fix:** Agregar ícono de búsqueda en mobile que abra overlay full-screen.
+#### ✅ 6D-20 [MEDIUM] Search escondido en mobile
+**Fix aplicado:** `Navbar.tsx` — ícono `Search` visible en mobile que abre el drawer (que ya contiene buscador completo con historial). 2026-03-31.
 
 #### ❌ 6D-21 [MEDIUM] No return policy visible en producto/checkout
 **Descartado por el usuario** (2026-03-30) — no se quiere mostrar badge de devoluciones.

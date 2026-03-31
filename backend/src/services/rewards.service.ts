@@ -19,6 +19,12 @@ export async function earnPoints(
   orderItems: { productId: string | null; unitPriceCents: number; quantity: number }[],
   description: string,
 ): Promise<number> {
+  // Idempotencia: si ya se acreditaron puntos para esta orden, no duplicar
+  const existing = await prisma.rewardTransaction.findFirst({
+    where: { orderId, type: 'EARN' },
+  });
+  if (existing) return 0;
+
   const config = await getRewardConfig();
   if (!config.enabled) return 0;
 

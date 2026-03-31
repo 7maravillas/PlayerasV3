@@ -511,6 +511,14 @@ const Navbar = () => {
               <button
                 className="lg:hidden"
                 onClick={() => setDrawerOpen(true)}
+                aria-label="Buscar"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+
+              <button
+                className="lg:hidden"
+                onClick={() => setDrawerOpen(true)}
                 aria-label="Abrir menú"
               >
                 <Menu className="w-6 h-6" />
