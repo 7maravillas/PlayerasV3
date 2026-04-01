@@ -30,6 +30,7 @@ const MEXICAN_STATES = [
 function normalizeState(apiState: string): string {
     const map: Record<string, string> = {
         "México": "Estado de México",
+        "Distrito Federal": "Ciudad de México",
         "Michoacán de Ocampo": "Michoacán",
         "Coahuila de Zaragoza": "Coahuila",
         "Veracruz de Ignacio de la Llave": "Veracruz",
@@ -148,7 +149,7 @@ export default function CheckoutPage() {
             .then(data => {
                 const zc = data.zip_codes?.[0];
                 if (!zc) return;
-                const city = (zc.d_ciudad || zc.D_mnpio || '').trim();
+                const city = (zc.d_ciudad || zc.d_mnpio || zc.D_mnpio || '').trim();
                 const state = normalizeState((zc.d_estado || '').trim());
                 setFormData(prev => ({
                     ...prev,
