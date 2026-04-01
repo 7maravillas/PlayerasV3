@@ -592,10 +592,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 **Problema:** Prisma transactions usan READ COMMITTED sin `FOR UPDATE`. Dos órdenes concurrentes pueden decrementar stock a negativo.
 **Fix:** Usar `WHERE stock >= quantity` en el decrement atómico y verificar rowcount, o usar `isolationLevel: 'Serializable'`.
 
-#### 6B-4 [CRITICAL] Stripe/SMTP env vars opcionales — fallo silencioso
-**Archivo:** `env.ts:46-48`
-**Problema:** Si `STRIPE_SECRET_KEY` falta en producción, el server arranca OK pero pagos fallan.
-**Fix:** Log WARN al startup si vars de pago/email faltan, o hacerlas required en production.
+#### ✅ 6B-4 [CRITICAL] Stripe/SMTP env vars opcionales — fallo silencioso
+**Fix aplicado:** `server.ts` — en el callback de `app.listen()` se agrupan los warnings por categoría: `[WARN] Payments disabled — missing: X` y `[WARN] Email disabled — missing: X`. 2026-03-31.
 
 #### ✅ 6B-5 [HIGH] Mailer leaks reset codes a stdout
 **Fix aplicado:** `mailer.ts` solo loguea `[MAIL-DEV] Para: email | Asunto: subject` cuando no hay API key — nunca imprime códigos. Verificado 2026-03-28.
@@ -621,9 +619,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ✅ 6B-12 [MEDIUM] Webhook idempotency — duplicate reward points
 **Fix aplicado:** `rewards.service.ts` — `earnPoints` verifica `rewardTransaction.findFirst({ where: { orderId, type: 'EARN' } })` antes de acreditar. Si existe, retorna 0 sin crear duplicado. 2026-03-31.
 
-#### 6B-13 [MEDIUM] GET /orders/:orderNumber sin auth (enumerable)
-**Archivo:** `order.routes.ts:337-401`
-**Fix:** Agregar rate limiting dedicado + extender parte aleatoria del order number.
+#### ✅ 6B-13 [MEDIUM] GET /orders/:orderNumber sin auth (enumerable)
+**Fix aplicado:** `order.routes.ts` — `lookupOrderLimiter` (30/10min por IP) aplicado al handler. 2026-03-31.
 
 #### ✅ 6B-14 [MEDIUM] Missing DB indexes
 **Fix aplicado:** `schema.prisma` — agregados `@@index([leagueId])` en Club, `@@index([productId])` en ProductImage, `@@index([purchaseOrderId])` y `@@index([variantId])` en PurchaseOrderItem, `@@index([orderId])` en RewardTransaction. Requiere `prisma migrate dev`. 2026-03-30.
@@ -648,13 +645,11 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ✅ 6C-1 [CRITICAL] Zero JSON-LD structured data
 **Fix aplicado:** `layout.tsx` tiene `Organization` + `WebSite`. `product/[id]/page.tsx` tiene `Product` + `BreadcrumbList`. Verificado 2026-03-28.
 
-#### 6C-2 [CRITICAL] No listo para Google Merchant Center
-**Problema:** Sin Product structured data con `offers` (price, currency MXN, availability, condition), sin GTIN/MPN/SKU, sin brand.
-**Fix:** Incluir en el JSON-LD de producto: `offers.price`, `offers.priceCurrency: "MXN"`, `offers.availability`, `brand.name`, `sku`.
+#### ✅ 6C-2 [CRITICAL] No listo para Google Merchant Center
+**Fix aplicado:** `product/[id]/page.tsx` — campos base ya existían; agregados `priceValidUntil` (+1 año dinámico) y precio mínimo entre variants (`Math.min(...prices)`). 2026-03-31.
 
-#### 6C-3 [CRITICAL] og-image.jpg y apple-touch-icon.png faltan
-**Archivo:** `frontend/public/`
-**Fix:** Crear `og-image.jpg` (1200x630px) y `apple-touch-icon.png` (180x180px) con branding de Jerseys Raw.
+#### ✅ 6C-3 [CRITICAL] og-image.jpg y apple-touch-icon.png faltan
+**Fix aplicado:** `app/opengraph-image.tsx` y `app/apple-icon.tsx` ya existían con `next/og`. Problema real: `layout.tsx` los sobreescribía con referencia estática a `/og-image.jpg` inexistente — eliminadas las líneas `images: [...]` de openGraph y twitter. 2026-03-31.
 
 #### ✅ 6C-4 [HIGH] Collections pages sin metadata
 **Fix aplicado:** `collections/[slug]/page.tsx` ya tiene `generateMetadata` con canonical. Verificado 2026-03-28.
@@ -671,8 +666,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ❌ 6C-8 [MEDIUM] Product OG type "website" → "product"
 **Revertido:** Next.js valida los tipos OG internamente y lanza error en Server Components con `"product"`. Quedó como `"website"`. El JSON-LD de Product ya cubre el schema de producto para Google.
 
-#### 6C-9 [MEDIUM] Reviews page client-rendered (invisible a crawlers)
-**Fix:** Fetch inicial server-side en un Server Component wrapper.
+#### ✅ 6C-9 [MEDIUM] Reviews page client-rendered (invisible a crawlers)
+**Fix aplicado:** `reviews/page.tsx` → Server Component con fetch SSR (revalidate 60s) + metadata. Lógica interactiva extraída a `ReviewsClient.tsx`. useEffect salta el mount inicial, usa datos del servidor; solo refetch cuando filtro cambia. 2026-03-31.
 
 #### 6C-10 [MEDIUM] 30+ raw `<img>` sin next/image
 **Archivos:** Hero, ProductCarousel, FootballSlider, Footer, CartSidebar, checkout
@@ -738,8 +733,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ✅ 6D-13 [HIGH] Teléfono placeholder en footer
 **Fix aplicado:** `Footer.tsx` ya tiene número real `+52 965 138 6865`. Verificado 2026-03-30.
 
-#### 6D-14 [HIGH] No welcome/post-purchase email al cliente
-**Fix:** Implementar email de confirmación de orden al cliente en el webhook handler + email de review request 7 días después.
+#### ✅ 6D-14 [HIGH] No welcome/post-purchase email al cliente
+**Verificado:** `sendOrderConfirmationEmail` ya existía en `mailer.ts` con template completo. Llamada fire-and-forget en `webhook.routes.ts:92` tras marcar orden PAID. Campos de Order y OrderItem coinciden exactamente con la interfaz. 2026-03-31.
 
 #### ✅ 6D-15 [HIGH] No prompt de crear cuenta en confirmation
 **Fix aplicado:** `confirmation/[orderNumber]/page.tsx` importa `useAuth` y muestra bloque CTA "Crear cuenta y ganar puntos" solo cuando `!user`, con el email de la orden pre-llenado en la URL de registro. 2026-03-30.
