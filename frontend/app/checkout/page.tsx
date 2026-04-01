@@ -17,6 +17,26 @@ interface ShippingOption {
     isFree: boolean;
 }
 
+const MEXICAN_STATES = [
+    "Aguascalientes", "Baja California", "Baja California Sur", "Campeche",
+    "Chiapas", "Chihuahua", "Ciudad de México", "Coahuila", "Colima",
+    "Durango", "Estado de México", "Guanajuato", "Guerrero", "Hidalgo",
+    "Jalisco", "Michoacán", "Morelos", "Nayarit", "Nuevo León", "Oaxaca",
+    "Puebla", "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa",
+    "Sonora", "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz", "Yucatán",
+    "Zacatecas",
+];
+
+function normalizeState(apiState: string): string {
+    const map: Record<string, string> = {
+        "México": "Estado de México",
+        "Michoacán de Ocampo": "Michoacán",
+        "Coahuila de Zaragoza": "Coahuila",
+        "Veracruz de Ignacio de la Llave": "Veracruz",
+    };
+    return map[apiState] ?? apiState;
+}
+
 function getFieldError(name: string, value: string): string {
     const v = value.trim();
     switch (name) {
@@ -80,6 +100,7 @@ export default function CheckoutPage() {
     const [couponError, setCouponError] = useState("");
     const [couponLoading, setCouponLoading] = useState(false);
     const [touched, setTouched] = useState<Partial<Record<string, boolean>>>({});
+    const [cpLoading, setCpLoading] = useState(false);
     const [firstPurchaseCoupon, setFirstPurchaseCoupon] = useState<{ code: string; discountPercent: number; description: string } | null>(null);
 
     useEffect(() => { setMounted(true); }, []);
@@ -117,6 +138,32 @@ export default function CheckoutPage() {
             })
             .catch(() => setShippingLoading(false));
     }, [mounted]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // CP lookup: cuando el usuario completa 5 dígitos, busca ciudad y estado
+    useEffect(() => {
+        if (formData.zipCode.length !== 5) return;
+        setCpLoading(true);
+        fetch(`https://sepomex.icalialabs.com/api/v1/zip_codes?zip_code=${formData.zipCode}`)
+            .then(r => r.json())
+            .then(data => {
+                const zc = data.zip_codes?.[0];
+                if (!zc) return;
+                const city = (zc.d_ciudad || zc.D_mnpio || '').trim();
+                const state = normalizeState((zc.d_estado || '').trim());
+                setFormData(prev => ({
+                    ...prev,
+                    ...(city ? { city } : {}),
+                    ...(MEXICAN_STATES.includes(state) ? { state } : {}),
+                }));
+                setTouched(prev => ({
+                    ...prev,
+                    ...(city ? { city: true } : {}),
+                    ...(MEXICAN_STATES.includes(state) ? { state: true } : {}),
+                }));
+            })
+            .catch(() => {}) // fallo silencioso — el usuario llena manualmente
+            .finally(() => setCpLoading(false));
+    }, [formData.zipCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!mounted) return null;
 
@@ -180,7 +227,7 @@ export default function CheckoutPage() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
         setTouched(prev => ({ ...prev, [e.target.name]: true }));
     };
 
@@ -330,6 +377,8 @@ export default function CheckoutPage() {
                             <section className="space-y-4">
                                 <h2 className="text-xl font-heading uppercase tracking-wide">Dirección de Envío</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                    {/* Nombre + Apellido */}
                                     <div className="flex flex-col gap-1">
                                         <label htmlFor="firstName" className="text-xs font-medium text-th-secondary">Nombre *</label>
                                         <input id="firstName" type="text" name="firstName" required placeholder="Juan" value={formData.firstName} onChange={handleInputChange} onBlur={handleBlur} autoComplete="given-name" className={getInputClass('firstName')} />
@@ -344,13 +393,31 @@ export default function CheckoutPage() {
                                             <p className="text-xs text-red-500 mt-1">{getFieldError('lastName', formData.lastName)}</p>
                                         )}
                                     </div>
-                                    <div className="flex flex-col gap-1 md:col-span-2">
-                                        <label htmlFor="address" className="text-xs font-medium text-th-secondary">Dirección *</label>
-                                        <input id="address" type="text" name="address" required placeholder="Calle, Número, Colonia" value={formData.address} onChange={handleInputChange} onBlur={handleBlur} autoComplete="street-address" className={getInputClass('address')} />
-                                        {touched.address && getFieldError('address', formData.address) && (
-                                            <p className="text-xs text-red-500 mt-1">{getFieldError('address', formData.address)}</p>
+
+                                    {/* CP + País — el CP dispara autofill de ciudad y estado */}
+                                    <div className="flex flex-col gap-1">
+                                        <label htmlFor="zipCode" className="text-xs font-medium text-th-secondary flex items-center gap-1">
+                                            Código Postal *
+                                            {cpLoading && <Loader2 className="w-3 h-3 animate-spin text-th-secondary" />}
+                                        </label>
+                                        <input
+                                            id="zipCode" type="text" name="zipCode" required placeholder="06600"
+                                            value={formData.zipCode} onChange={handleInputChange} onBlur={handleBlur}
+                                            pattern="\d{5}" maxLength={5} title="5 dígitos"
+                                            autoComplete="postal-code" className={getInputClass('zipCode')}
+                                        />
+                                        {touched.zipCode && getFieldError('zipCode', formData.zipCode) && (
+                                            <p className="text-xs text-red-500 mt-1">{getFieldError('zipCode', formData.zipCode)}</p>
                                         )}
                                     </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label htmlFor="country" className="text-xs font-medium text-th-secondary">País</label>
+                                        <select id="country" name="country" value={formData.country} onChange={handleInputChange} autoComplete="country-name" className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-black focus:border-black focus:outline-none transition-colors">
+                                            <option value="México">México</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Ciudad + Estado — autollenados por CP */}
                                     <div className="flex flex-col gap-1">
                                         <label htmlFor="city" className="text-xs font-medium text-th-secondary">Ciudad *</label>
                                         <input id="city" type="text" name="city" required placeholder="Ciudad de México" value={formData.city} onChange={handleInputChange} onBlur={handleBlur} autoComplete="address-level2" className={getInputClass('city')} />
@@ -360,31 +427,29 @@ export default function CheckoutPage() {
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label htmlFor="state" className="text-xs font-medium text-th-secondary">Estado *</label>
-                                        <input id="state" type="text" name="state" required placeholder="CDMX" value={formData.state} onChange={handleInputChange} onBlur={handleBlur} autoComplete="address-level1" className={getInputClass('state')} />
+                                        <select
+                                            id="state" name="state" required
+                                            value={formData.state} onChange={handleInputChange} onBlur={handleBlur}
+                                            autoComplete="address-level1" className={getInputClass('state')}
+                                        >
+                                            <option value="">Selecciona un estado</option>
+                                            {MEXICAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
                                         {touched.state && getFieldError('state', formData.state) && (
                                             <p className="text-xs text-red-500 mt-1">{getFieldError('state', formData.state)}</p>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="flex flex-col gap-1">
-                                            <label htmlFor="zipCode" className="text-xs font-medium text-th-secondary">C.P. *</label>
-                                            <input
-                                                id="zipCode" type="text" name="zipCode" required placeholder="06600"
-                                                value={formData.zipCode} onChange={handleInputChange} onBlur={handleBlur}
-                                                pattern="\d{5}" maxLength={5} title="5 dígitos"
-                                                autoComplete="postal-code" className={getInputClass('zipCode')}
-                                            />
-                                            {touched.zipCode && getFieldError('zipCode', formData.zipCode) && (
-                                                <p className="text-xs text-red-500 mt-1">{getFieldError('zipCode', formData.zipCode)}</p>
-                                            )}
-                                        </div>
-                                        <div className="flex flex-col gap-1">
-                                            <label htmlFor="country" className="text-xs font-medium text-th-secondary">País</label>
-                                            <select id="country" name="country" value={formData.country} onChange={handleInputChange} autoComplete="country-name" className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-black focus:border-black focus:outline-none transition-colors">
-                                                <option value="México">México</option>
-                                            </select>
-                                        </div>
+
+                                    {/* Dirección */}
+                                    <div className="flex flex-col gap-1 md:col-span-2">
+                                        <label htmlFor="address" className="text-xs font-medium text-th-secondary">Dirección *</label>
+                                        <input id="address" type="text" name="address" required placeholder="Calle, Número, Colonia" value={formData.address} onChange={handleInputChange} onBlur={handleBlur} autoComplete="street-address" className={getInputClass('address')} />
+                                        {touched.address && getFieldError('address', formData.address) && (
+                                            <p className="text-xs text-red-500 mt-1">{getFieldError('address', formData.address)}</p>
+                                        )}
                                     </div>
+
+                                    {/* Teléfono */}
                                     <div className="flex flex-col gap-1 md:col-span-2">
                                         <label htmlFor="phone" className="text-xs font-medium text-th-secondary">Teléfono *</label>
                                         <input
@@ -397,6 +462,8 @@ export default function CheckoutPage() {
                                             <p className="text-xs text-red-500 mt-1">{getFieldError('phone', formData.phone)}</p>
                                         )}
                                     </div>
+
+                                    {/* Referencia (opcional) */}
                                     <div className="flex flex-col gap-1 md:col-span-2">
                                         <label htmlFor="reference" className="text-xs font-medium text-th-secondary">Referencia <span className="font-normal">(opcional)</span></label>
                                         <input
