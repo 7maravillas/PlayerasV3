@@ -669,9 +669,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ✅ 6C-9 [MEDIUM] Reviews page client-rendered (invisible a crawlers)
 **Fix aplicado:** `reviews/page.tsx` → Server Component con fetch SSR (revalidate 60s) + metadata. Lógica interactiva extraída a `ReviewsClient.tsx`. useEffect salta el mount inicial, usa datos del servidor; solo refetch cuando filtro cambia. 2026-03-31.
 
-#### 6C-10 [MEDIUM] 30+ raw `<img>` sin next/image
-**Archivos:** Hero, ProductCarousel, FootballSlider, Footer, CartSidebar, checkout
-**Fix:** Reemplazar con `next/image` o `CldImage` para optimización automática.
+#### ✅ 6C-10 [MEDIUM] 30+ raw `<img>` sin next/image
+**Fix aplicado:** 13 `<img>` reemplazados con `next/image` fill en Hero, ProductCarousel, FootballSlider, CartSidebar, Footer (6 logos), checkout, confirmation. `priority` en slide 0 del Hero. `sizes` en todos. 2026-03-31.
 
 #### ❌ 6C-11 [MEDIUM] No generateStaticParams en rutas dinámicas
 **Revertido:** `ProductListing` usa `useSearchParams()` sin Suspense boundary — al agregar `generateStaticParams` Next.js intenta pre-renderizar estáticamente y truena en build. Requiere refactorizar `ProductListing` para envolverlo en `<Suspense>` antes de poder agregar static params.
@@ -724,8 +723,8 @@ Auditoría completa con 4 agentes especializados: Security, Backend Production, 
 #### ✅ 6D-10 [HIGH] No loading.tsx en ninguna ruta
 **Fix aplicado:** Creados `loading.tsx` con skeletons en: `catalog/`, `checkout/`, `product/[id]/`, `account/`. 2026-03-31.
 
-#### 6D-11 [HIGH] Hero/ProductCarousel usan raw `<img>`
-**Fix:** Usar `next/image` con `priority` en primer slide del Hero, `loading="lazy"` en el resto.
+#### ✅ 6D-11 [HIGH] Hero/ProductCarousel usan raw `<img>`
+**Fix aplicado:** Cubierto en 6C-10. Hero slide 0 con `priority`, resto lazy. 2026-03-31.
 
 #### ✅ 6D-12 [HIGH] Links sociales placeholder href="#"
 **Estado:** Instagram ya tiene URL real. Facebook/Twitter/YouTube sin cuentas activas — descartado por el usuario. 2026-03-28.
