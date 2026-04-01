@@ -69,11 +69,16 @@ export default async function ProductDetailPage(
 
   if (!product) notFound();
 
-  const price = product.variants?.[0]?.priceCents;
+  const variants: any[] = product.variants ?? [];
+  const prices = variants.map((v: any) => v.priceCents).filter(Boolean);
+  const minPrice = prices.length > 0 ? Math.min(...prices) : null;
   const imageUrl = product.images?.[0]?.url || product.imageUrl || "";
-  const availability = product.variants?.some((v: any) => v.stock > 0)
+  const availability = variants.some((v: any) => v.stock > 0)
     ? "https://schema.org/InStock"
     : "https://schema.org/OutOfStock";
+  const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -86,12 +91,13 @@ export default async function ProductDetailPage(
         "image": imageUrl ? [imageUrl] : [],
         "sku": params.id,
         "brand": { "@type": "Brand", "name": "Jerseys Raw" },
-        ...(price ? {
+        ...(minPrice ? {
           "offers": {
             "@type": "Offer",
             "url": `https://jerseysraw.com/product/${params.id}`,
             "priceCurrency": "MXN",
-            "price": (price / 100).toFixed(2),
+            "price": (minPrice / 100).toFixed(2),
+            "priceValidUntil": priceValidUntil,
             "availability": availability,
             "itemCondition": "https://schema.org/NewCondition",
             "seller": { "@type": "Organization", "name": "Jerseys Raw" },
