@@ -853,6 +853,20 @@ Reducir fricción en el registro/login. Google OAuth cubre el 90% del caso de us
 
 | Fase | Tarea | Estado |
 |------|-------|--------|
-| Backend | `POST /auth/google` + migración `googleId` | ❌ Pendiente |
-| Frontend | Botón Google en Login y Register | ❌ Pendiente |
-| Config | Google Cloud Console + env vars | ❌ Pendiente |
+| Backend | `POST /auth/google` + migración `googleId` | ✅ Completo |
+| Frontend | Botón Google en Login y Register | ✅ Completo |
+| Config | Google Cloud Console + env vars | ✅ Completo |
+
+---
+
+## Sprint 8 — Pre-lanzamiento (2026-04-01)
+
+| Tarea | Descripción | Estado |
+|-------|-------------|--------|
+| **GTM** | Google Tag Manager (GTM-K46NF3VK) instalado en layout.tsx | ✅ Completo |
+| **Google OAuth** | Login/Register con Google, botón custom full-width | ✅ Completo |
+| **Rewards rediseño** | Página /account/rewards reescrita con foco en conversión | ✅ Completo |
+| **Rewards números** | goalPoints=1450, centsPerPoint=200 (275 pts por jersey $550) | ✅ Completo (SQL en Neon) |
+| **Carousel cards** | Más angostas y altas, snap-center, centrado inicial corregido | ✅ Completo |
+| **Login/Register padding** | pt-24 para no chocar con navbar | ✅ Completo |
+| **Meta Pixel** | Pendiente aprobación cuenta Meta Business | ⏳ Bloqueado |

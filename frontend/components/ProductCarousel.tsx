@@ -63,8 +63,12 @@ const ProductCarousel = () => {
 
   useEffect(() => {
     if (scrollRef.current) {
-      const oneSetWidth = scrollRef.current.scrollWidth / 3;
-      scrollRef.current.scrollLeft = oneSetWidth;
+      const container = scrollRef.current;
+      const oneSetWidth = container.scrollWidth / 3;
+      const firstCard = container.children[0] as HTMLElement | null;
+      const cardWidth = firstCard ? firstCard.offsetWidth : 256;
+      // Con snap-center: centrar la primera card del set del medio
+      container.scrollLeft = oneSetWidth + cardWidth / 2 - container.clientWidth / 2;
     }
   }, []);
 
@@ -126,13 +130,13 @@ const ProductCarousel = () => {
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            className="flex flex-row gap-4 overflow-x-auto pb-4 scrollbar-hide flex-nowrap px-2 snap-x snap-mandatory"
+            className="flex flex-row gap-4 overflow-x-auto pb-4 scrollbar-hide flex-nowrap px-2 snap-x snap-proximity"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {INFINITE_PRODUCTS.map((product, index) => (
               <div
                 key={`${product.id}-${index}`}
-                className="w-64 md:w-[calc(29%-11px)] lg:w-[calc(21%-12px)] flex-shrink-0 snap-start group flex flex-col h-[380px] md:h-[430px] lg:h-[490px]"
+                className="w-64 md:w-[calc(29%-11px)] lg:w-[calc(21%-12px)] flex-shrink-0 snap-center group flex flex-col h-[380px] md:h-[430px] lg:h-[490px]"
               >
                 {/* NOMBRE — arriba, impactante */}
                 <div className="pb-3 text-center">
