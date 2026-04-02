@@ -39,7 +39,7 @@ export default function LoginClient() {
     <div className="min-h-screen flex flex-col bg-theme-bg text-th-primary">
       <Navbar />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-16">
+      <main className="flex-1 flex items-center justify-center px-4 pt-24 pb-16">
         <div className="w-full max-w-md">
           {/* Header */}
           <div className="text-center mb-10">
