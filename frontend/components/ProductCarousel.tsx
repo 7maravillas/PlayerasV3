@@ -114,7 +114,7 @@ const ProductCarousel = () => {
           {/* Botón IZQUIERDO */}
           <button
             onClick={() => scroll('left')}
-            className="absolute left-0 top-[40%] -translate-y-1/2 -translate-x-3 z-10 p-2.5 rounded-full bg-white/80 dark:bg-zinc-800/80 border border-slate-200 dark:border-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-white backdrop-blur-sm shadow-sm transition-all"
+            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 p-2.5 rounded-full bg-white/80 dark:bg-zinc-800/80 border border-slate-200 dark:border-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-white backdrop-blur-sm shadow-sm transition-all"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -122,7 +122,7 @@ const ProductCarousel = () => {
           {/* Botón DERECHO */}
           <button
             onClick={() => scroll('right')}
-            className="absolute right-0 top-[40%] -translate-y-1/2 translate-x-3 z-10 p-2.5 rounded-full bg-white/80 dark:bg-zinc-800/80 border border-slate-200 dark:border-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-white backdrop-blur-sm shadow-sm transition-all"
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 p-2.5 rounded-full bg-white/80 dark:bg-zinc-800/80 border border-slate-200 dark:border-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-white backdrop-blur-sm shadow-sm transition-all"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -131,7 +131,7 @@ const ProductCarousel = () => {
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            className="flex flex-row gap-4 overflow-x-auto pb-4 scrollbar-hide flex-nowrap px-2 lg:pl-8 snap-x snap-proximity"
+            className="flex flex-row gap-4 overflow-x-auto pb-4 scrollbar-hide flex-nowrap px-2 lg:pl-12 snap-x snap-proximity"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {INFINITE_PRODUCTS.map((product, index) => (
