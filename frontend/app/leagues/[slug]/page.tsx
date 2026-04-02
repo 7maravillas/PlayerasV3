@@ -22,7 +22,7 @@ async function getLeagueProducts(slug: string) {
     // Nota: Necesitas asegurarte de que tu backend soporte ?league=slug
     // Si aún no lo agregaste al backend, esto devolverá vacío, pero el diseño funcionará.
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'}/api/v1/products?league=${slug}&limit=100`,
+      `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'}/api/v1/products?leagues=${slug}&limit=100`,
       { next: { revalidate: 60 } }
     );
     if (!res.ok) return { items: [] };
