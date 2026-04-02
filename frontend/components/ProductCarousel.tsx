@@ -64,8 +64,12 @@ const ProductCarousel = () => {
   useEffect(() => {
     if (scrollRef.current) {
       const container = scrollRef.current;
-      const oneSetWidth = container.scrollWidth / 3;
-      container.scrollLeft = oneSetWidth;
+      // Scroll exacto al primer card del set del medio
+      const middleSetFirst = container.children[PRODUCTS.length] as HTMLElement;
+      if (middleSetFirst) {
+        const paddingLeft = parseFloat(getComputedStyle(container).paddingLeft);
+        container.scrollLeft = middleSetFirst.offsetLeft - paddingLeft;
+      }
     }
   }, []);
 
@@ -133,7 +137,7 @@ const ProductCarousel = () => {
             {INFINITE_PRODUCTS.map((product, index) => (
               <div
                 key={`${product.id}-${index}`}
-                className="w-64 md:w-[calc(29%-11px)] lg:w-[calc(23%-12px)] flex-shrink-0 snap-center group flex flex-col h-[380px] md:h-[430px] lg:h-[490px]"
+                className="w-64 md:w-[calc(29%-11px)] lg:w-[calc(23%-12px)] flex-shrink-0 snap-center lg:snap-start group flex flex-col h-[380px] md:h-[430px] lg:h-[490px]"
               >
                 {/* NOMBRE — arriba, impactante */}
                 <div className="pb-3 text-center">
