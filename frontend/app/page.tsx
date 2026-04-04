@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Jerseys Raw — Official Gear",
     description: "Jerseys auténticos de fútbol. Premier League, La Liga, Champions League y más. Envíos a toda México.",
-    url: "https://jerseysraw.com",
+    url: "https://jerseysraw.com/",
   },
-  alternates: { canonical: "https://jerseysraw.com" },
+  alternates: { canonical: "https://jerseysraw.com/" },
 };
 
 // Divisor de sección reutilizable
