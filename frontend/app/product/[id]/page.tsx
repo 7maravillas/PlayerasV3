@@ -37,12 +37,12 @@ export async function generateMetadata(
     : "";
 
   const description = product.description
-    || `${product.name}${price ? ` — ${price}` : ""}. Jersey oficial disponible en Jerseys Raw.`;
+    || `Compra el jersey ${product.name} al mejor precio${price ? ` — ${price}` : ""}. Versión Fan y Player disponible. Envío express a toda la República Mexicana. Personalización con nombre y número.`;
 
   const imageUrl = product.images?.[0]?.url || product.imageUrl || "";
 
   return {
-    title: `${product.name}${price ? ` — ${price}` : ""} | Jerseys Raw`,
+    title: `${product.name} | Jersey Oficial${price ? ` — ${price}` : ""} | Jerseys Raw`,
     description,
     openGraph: {
       title: `${product.name}${price ? ` — ${price}` : ""}`,

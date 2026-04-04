@@ -5,12 +5,13 @@ export async function generateMetadata(
   { params }: { params: { slug: string } }
 ): Promise<Metadata> {
   const title = params.slug.replace(/-/g, ' ').toUpperCase();
+  const titleCase = params.slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   return {
-    title: `Jerseys — ${title}`,
-    description: `Compra jerseys de ${title}. Todos los equipos y temporadas disponibles. Envíos a toda la República Mexicana.`,
+    title: `Jerseys ${titleCase} 2024-2025 | Jerseys Raw`,
+    description: `Jerseys oficiales de todos los equipos de ${title} 2024-2025. Versión Fan y Player disponible. Tallas XS a 3XL. Envío express a toda la República Mexicana.`,
     openGraph: {
-      title: `Jerseys ${title} — Jerseys Raw`,
-      description: `Jerseys de todos los equipos de ${title}. Envíos a todo México.`,
+      title: `Jerseys ${titleCase} — Jerseys Raw`,
+      description: `Todos los equipos de ${title}. Jerseys oficiales con envío a México.`,
       url: `https://jerseysraw.com/leagues/${params.slug}`,
     },
     alternates: { canonical: `https://jerseysraw.com/leagues/${params.slug}` },
@@ -37,11 +38,22 @@ export default async function LeaguePage({ params }: { params: { slug: string } 
   const data = await getLeagueProducts(slug);
   
   const title = slug.replace(/-/g, ' ').toUpperCase();
+  const titleCase = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   return (
-    <ProductListing
-      title={title}
-      products={data.items || []}
-    />
+    <>
+      <ProductListing
+        title={title}
+        products={data.items || []}
+      />
+      <section className="max-w-3xl mx-auto px-6 md:px-12 pb-16 text-sm text-gray-500 leading-relaxed">
+        <h2 className="text-base font-medium text-gray-700 mb-2">Jerseys de {titleCase} en México</h2>
+        <p>
+          Explora todos los jerseys oficiales de los equipos de {title} temporada 2024-2025.
+          Versión Fan y Player disponible en cada modelo. Tallas de XS a 3XL.
+          Personalización con nombre y número. Envío express a domicilio en toda la República Mexicana.
+        </p>
+      </section>
+    </>
   );
 }
