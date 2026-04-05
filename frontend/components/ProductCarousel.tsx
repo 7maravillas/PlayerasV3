@@ -137,7 +137,7 @@ const ProductCarousel = () => {
             {INFINITE_PRODUCTS.map((product, index) => (
               <div
                 key={`${product.id}-${index}`}
-                className="w-64 md:w-80 lg:w-[calc(23%-12px)] flex-shrink-0 snap-center lg:snap-start group flex flex-col h-[380px] md:h-[430px] lg:h-[490px]"
+                className="w-64 md:w-[calc(23%-12px)] lg:w-[calc(23%-12px)] flex-shrink-0 snap-center lg:snap-start group flex flex-col h-[380px] md:h-[430px] lg:h-[490px]"
               >
                 {/* NOMBRE — arriba, impactante */}
                 <div className="pb-3 text-center">
