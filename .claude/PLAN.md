@@ -232,19 +232,51 @@ Según el audit el AccountClient ya fetchea `/orders/mine` pero usa raw fetch. D
 
 ---
 
+## Sprint Progress
+
+### ✅ Sprint SEO (2026-04-04) — Completed
+| Tarea | Estado | Archivo |
+|-------|--------|---------|
+| Datos estructurados JSON-LD (SearchAction deprecado) | ✅ | layout.tsx |
+| Meta descripción (147→119 chars) | ✅ | page.tsx |
+| Títulos (41→51 chars en todas variantes) | ✅ | layout.tsx, page.tsx |
+| Canonical + www redirect 301 | ✅ | next.config.js, layout.tsx |
+| ALT attributes (4 hero images) | ✅ | Hero.tsx |
+| Heading structure (H1-H3 hierarchy) | ✅ | ProductDetailClient.tsx |
+| Carousel anchor rel="nofollow" | ✅ | ProductDetailClient.tsx |
+| LCP fix (!mounted guard removal) | ✅ | ProductDetailClient.tsx |
+| iPad carousel width inconsistency | ✅ | ProductCarousel.tsx |
+
+### 🔄 Auth Refresh Token System (2026-04-04) — In Progress
+| Tarea | Estado | Archivo |
+|-------|--------|---------|
+| Schema migration (refreshToken fields) | ✅ Code | schema.prisma |
+| Auth library (token generation) | ✅ Code | lib/auth.ts |
+| POST /auth/refresh endpoint | ✅ Code | auth.routes.ts |
+| POST /auth/logout endpoint | ✅ Code | auth.routes.ts |
+| Access token TTL reduction (7d→2d) | ✅ Code | lib/auth.ts |
+| AuthContext auto-renew logic | ✅ Code | AuthContext.tsx |
+| Error standardization (Spanish + code field) | ✅ Code | errorHandler.ts, routes |
+| 🔴 DB schema sync (`npx prisma db push`) | ⏳ Pending | — |
+
+**Next steps:** Run `npx prisma db push` to apply schema migration before testing refresh endpoints.
+
+---
+
 ## Orden de Ejecución Sugerido
 
-**Sprint 1 — Deuda técnica rápida (1-2 días)**
+**Sprint 1 — Deuda técnica rápida (1-2 días)** ✅ Mostly done
 B4, F7, F3, B5, B6, B8
 
 **Sprint 2 — Features de usuario faltantes (2-3 días)**
 F1, F2, B1 (password reset), B2 (admin email), B3 (webhook expired)
 
-**Sprint 3 — Páginas dinámicas y SEO (1-2 días)**
+**Sprint 3 — Páginas dinámicas y SEO (1-2 días)** ✅ COMPLETED (2026-04-04)
 F4, F5, F6, B7
 
-**Sprint 4 — Admin panel completo (3-5 días)**
-FS1 (más complejo), FS2, FS3, FS4, FS5
+**Sprint 4 — Auth & Admin panel (3-5 días)** 🔄 In progress
+Auth: Refresh token system (refresh endpoint testing, session validation)
+Admin: FS1 (más complejo), FS2, FS3, FS4, FS5
 
 ---
 
