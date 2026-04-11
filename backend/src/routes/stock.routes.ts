@@ -25,7 +25,11 @@ router.get('/admin/stock', requireAuth, async (req: Request, res: Response) => {
       size: true,
       color: true,
       audience: true,
+      sleeve: true,
       isDropshippable: true,
+      isPlayerVersion: true,
+      allowsNameNumber: true,
+      priceCents: true,
       stock: true,
     };
     if (hasStockMovements) {
@@ -84,7 +88,11 @@ router.get('/admin/stock', requireAuth, async (req: Request, res: Response) => {
           size: v.size,
           color: v.color,
           audience: v.audience,
+          sleeve: v.sleeve,
           isDropshippable: v.isDropshippable,
+          isPlayerVersion: v.isPlayerVersion,
+          allowsNameNumber: v.allowsNameNumber,
+          priceCents: v.priceCents,
           stock: v.stock,
           sold,
           totalRestocked,
